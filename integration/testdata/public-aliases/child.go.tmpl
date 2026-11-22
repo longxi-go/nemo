@@ -1,0 +1,42 @@
+package child
+
+import (
+	gosr "github.com/longxi-go/gosr/pkg/environment"
+	"github.com/longxi-go/nemo/pkg/binding"
+)
+
+type hiddenConfig struct {
+	Value int
+	Keep  string
+}
+
+type Config = hiddenConfig
+
+type Pointer = *hiddenConfig
+
+func (target *hiddenConfig) BindProperties(resolver gosr.PropertyResolver, prefix string) error {
+	value, err := binding.Read(resolver, binding.Join(prefix, "value"), binding.ReadOptions{
+		HasDefault: true,
+		Default:    "7",
+	}, binding.Signed[int])
+	if err != nil {
+		return err
+	}
+	target.Value = value
+	return nil
+}
+
+type hiddenLabel string
+
+type Label = hiddenLabel
+
+type hiddenText struct {
+	Value string
+}
+
+type Text = hiddenText
+
+func (target *hiddenText) UnmarshalText(value []byte) error {
+	target.Value = string(value)
+	return nil
+}

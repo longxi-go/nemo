@@ -1,0 +1,45 @@
+{{define "collection"}}{{$names := .Names}}{{with .Field}}
+{{$names.Inputs}}, {{$names.Err}} := {{$names.Binding}}.{{if .Mode.IsList}}ListObjects{{else}}MapObjects{{end}}({{$names.Resolver}}, {{$names.Binding}}.Join({{$names.Prefix}}, {{quote .Key}}), {{.Required}})
+if {{$names.Err}} != nil {
+    return {{$names.Next}}, {{$names.Err}}
+}
+var {{$names.Value}} {{.Type}}
+if {{$names.Inputs}} != nil {
+{{$names.Value}} = make({{.Type}}, len({{$names.Inputs}}))
+{{if .Mode.IsMap}}
+{{$names.Keys}} := make([]string, 0, len({{$names.Inputs}}))
+for {{$names.Index}} := range {{$names.Inputs}} {
+    {{$names.Keys}} = append({{$names.Keys}}, {{$names.Index}})
+}
+{{$names.Sort}}.Strings({{$names.Keys}})
+for _, {{$names.Index}} := range {{$names.Keys}} {
+{{$names.Scoped}} := {{$names.Inputs}}[{{$names.Index}}]
+{{else}}
+for {{$names.Index}}, {{$names.Scoped}} := range {{$names.Inputs}} {
+{{end}}
+{{with .Element}}
+{{if .External}}
+if {{$names.Err}} := {{$names.Binding}}.CheckObjectDepth({{$names.Depth}}+1); {{$names.Err}} != nil {
+    return {{$names.Next}}, {{$names.Scoped}}.Wrap(&{{$names.Environment}}.Error{
+    Code: {{$names.Environment}}.ConversionFailed,
+    Key: {{$names.Scoped}}.Prefix,
+    Cause: {{$names.Err}},
+})
+}
+var {{$names.Item}} {{.Type}}
+{{if .Pointer}}{{$names.Item}} = {{.Helper}}({{$names.Item}}){{end}}
+if {{$names.Err}} := {{$names.Item}}.BindProperties({{$names.Scoped}}.Resolver, {{$names.Scoped}}.Prefix); {{$names.Err}} != nil {
+return {{$names.Next}}, {{$names.Scoped}}.Wrap({{$names.Err}})
+}
+{{else}}
+var {{$names.Current}} {{.Base}}
+{{$names.Item}}, {{$names.Err}} := {{.Helper}}({{$names.Scoped}}.Resolver, {{$names.Scoped}}.Prefix, {{$names.Current}}, {{$names.Depth}}+1)
+if {{$names.Err}} != nil {
+    return {{$names.Next}}, {{$names.Scoped}}.Wrap({{$names.Err}})
+}
+{{end}}
+{{$names.Value}}[{{$names.Index}}] = {{if and .Pointer (not .External)}}&{{end}}{{$names.Item}}
+{{end}}
+}
+}
+{{end}}{{end}}

@@ -1,0 +1,25 @@
+package consumer
+
+import (
+	"consumer/child"
+
+	_ "github.com/longxi-go/nemo/pkg/binding"
+)
+
+var nemoNewPointer = 1
+
+type any string
+
+var new = 1
+
+// +nemo:config:prefix=app
+type Config struct {
+	Child   *child.Config
+	Alias   child.Pointer
+	Label   child.Label   `default:"scalar"`
+	Labels  []child.Label `default:"first,second"`
+	Pointer *child.Label  `default:"pointer"`
+	Text    child.Text    `default:"text"`
+	Texts   []child.Text  `default:"one,two"`
+	Last    int8
+}

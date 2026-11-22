@@ -1,0 +1,41 @@
+### IDE files ###
+.idea/
+.vscode/
+
+### vibe coding files ###
+.codex/
+.claude/
+.cursor/
+.omx/
+
+.superpowers/
+docs/superpowers/
+docs/plans/
+docs/reports/
+docs/architecture/
+
+openspec/
+
+.tmp/
+.cache/
+
+# Additional project exclusions.
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
+logs/
+go.work
+go.work.sum
+
+# Documentation build outputs.
+/docs/design/site/
+/docs/design/.venv/
+
+# Python bytecode.
+__pycache__/
+*.py[cod]

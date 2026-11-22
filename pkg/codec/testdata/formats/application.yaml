@@ -1,0 +1,11 @@
+app:
+  name: demo
+  server:
+    port: 8080
+  enabled: true
+  timeout: 2s
+  tags: [one, two]
+  meta: {label: combined}
+  backends: {east: {port: 81}}
+  tree: {next: {name: leaf}}
+  servers: [{port: 80}, {port: 82}]

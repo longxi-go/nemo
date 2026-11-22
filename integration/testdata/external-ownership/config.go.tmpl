@@ -1,0 +1,15 @@
+package consumer
+
+import "consumer/child"
+
+// +nemo:config:prefix=app
+type Config struct {
+	Value      child.Config
+	Pointer    *child.Config
+	Values     []child.Config
+	Pointers   []*child.Config
+	Aliases    []child.Pointer
+	Map        map[string]child.Config
+	PointerMap map[string]child.Pointer
+	Last       uint8
+}

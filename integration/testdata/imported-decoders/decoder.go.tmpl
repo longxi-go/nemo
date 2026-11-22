@@ -1,0 +1,16 @@
+package decoder
+
+import (
+	"time"
+
+	"example.org/decoder/values"
+	_ "github.com/longxi-go/nemo/pkg/binding"
+)
+
+// +nemo:config:prefix=app
+type Config struct {
+	Delay  *time.Duration
+	Delays []time.Duration
+	Ports  values.Ports
+	Count  values.Count
+}

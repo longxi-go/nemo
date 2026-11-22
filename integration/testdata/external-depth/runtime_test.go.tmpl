@@ -1,0 +1,76 @@
+package consumer
+
+import (
+	"context"
+	"errors"
+	"reflect"
+	"strings"
+	"testing"
+
+	gosr "github.com/longxi-go/gosr/pkg/environment"
+	"github.com/longxi-go/nemo/pkg/environment"
+	"github.com/longxi-go/nemo/pkg/maptypes"
+	"github.com/longxi-go/nemo/pkg/source"
+)
+
+func env(t *testing.T, values maptypes.ValueMap) gosr.PropertyResolver {
+	t.Helper()
+	snapshot, err := source.NewMap("depth", values)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolver, err := environment.New(context.Background(), environment.WithProviders(source.Static(snapshot)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resolver
+}
+
+func TestExternalRootCountsAtCallerBoundary(t *testing.T) {
+	for _, depth := range []int{63, 64} {
+		key := "app" + strings.Repeat(".next", depth)
+		var target Config
+		err := target.BindProperties(env(t, maptypes.ValueMap{
+			key: gosr.Object(nil),
+		}), "app")
+		if depth == 63 && err != nil {
+			t.Fatalf("external root at64: %v", err)
+		}
+		if depth == 64 && !errors.Is(err, &gosr.Error{
+			Code: gosr.ConversionFailed,
+		}) {
+			t.Fatalf("external root at65: %v", err)
+		}
+	}
+}
+
+func TestExternalGeneratedEntryOwnsItsBudget(t *testing.T) {
+	key := "app.external" + strings.Repeat(".next", 64)
+	var target Config
+	if err := target.BindProperties(env(t, maptypes.ValueMap{
+		key: gosr.Object(nil),
+	}), "app"); err != nil {
+		t.Fatalf("external public entry did not start its own budget: %v", err)
+	}
+	node := target.External
+	count := 0
+	for node != nil {
+		count++
+		node = node.Next
+	}
+	if count != 65 {
+		t.Fatalf("external chain: %d", count)
+	}
+}
+
+func TestExternalCollectionDepthErrorLocation(t *testing.T) {
+	key := "collections" + strings.Repeat(".next", 64) + ".items"
+	var target Collections
+	err := target.BindProperties(env(t, maptypes.ValueMap{
+		key: gosr.List(gosr.Object(nil)),
+	}), "collections")
+	var detail *gosr.Error
+	if !errors.As(err, &detail) || detail.Code != gosr.ConversionFailed || detail.Key != key || detail.Origin.Source != "depth" || !reflect.DeepEqual(detail.Path, []string{"[0]"}) {
+		t.Fatalf("external element depth provenance: %#v", detail)
+	}
+}

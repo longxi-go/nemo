@@ -1,0 +1,118 @@
+package consumer
+
+import (
+	"consumer/child"
+	"context"
+	"reflect"
+	"testing"
+
+	gosr "github.com/longxi-go/gosr/pkg/environment"
+	"github.com/longxi-go/nemo/pkg/environment"
+	"github.com/longxi-go/nemo/pkg/maptypes"
+	"github.com/longxi-go/nemo/pkg/source"
+)
+
+func original() child.Config {
+	value := 1
+	return child.Config{
+		Map:     map[string]int{"value": 1},
+		Slice:   []int{1},
+		Pointer: &value,
+		Keep:    "old",
+	}
+}
+
+func TestExternalBinderLateParentFailure(t *testing.T) {
+	value := original()
+	pointer := original()
+	target := Config{
+		Value:   value,
+		Pointer: &pointer,
+		Last:    2,
+	}
+	snapshot, err := source.NewMap("test", maptypes.ValueMap{
+		"app.last": gosr.String("256"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	env, err := environment.New(context.Background(), environment.WithProviders(source.Static(snapshot)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := target.BindProperties(env, "app"); err == nil {
+		t.Fatal("expected late parent conversion failure")
+	}
+	for name, object := range map[string]child.Config{"value": value, "pointer": pointer} {
+		if !reflect.DeepEqual(object.Map, map[string]int{"value": 1}) || !reflect.DeepEqual(object.Slice, []int{1}) || *object.Pointer != 1 || object.Keep != "old" {
+			t.Fatalf("%s old storage mutated: %#v", name, object)
+		}
+	}
+	if target.Pointer != &pointer || target.Last != 2 {
+		t.Fatal("parent committed after failure")
+	}
+}
+
+func TestExternalReplacementStartsFresh(t *testing.T) {
+	old := original()
+	target := Config{
+		Value:   old,
+		Pointer: &old,
+	}
+	env, err := environment.New(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := target.BindProperties(env, "app"); err != nil {
+		t.Fatal(err)
+	}
+	if target.Value.Keep != "" || target.Pointer.Keep != "" || target.Value.Map["value"] != 7 || target.Pointer.Slice[0] != 7 {
+		t.Fatalf("external object inherited old state: %#v", target)
+	}
+	if old.Map["value"] != 1 || old.Slice[0] != 1 || *old.Pointer != 1 || old.Keep != "old" {
+		t.Fatal("successful replacement mutated old references")
+	}
+}
+
+func TestExternalObjectCollections(t *testing.T) {
+	old := original()
+	object := gosr.Object(maptypes.ValueMap{
+		"value": gosr.String("9"),
+	})
+	snapshot, err := source.NewMap("test", maptypes.ValueMap{
+		"app.values":   gosr.List(object),
+		"app.pointers": gosr.List(object),
+		"app.aliases":  gosr.List(object),
+		"app.map": gosr.Object(maptypes.ValueMap{
+			"one": object,
+		}),
+		"app.pointermap": gosr.Object(maptypes.ValueMap{
+			"one": object,
+		}),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	env, err := environment.New(context.Background(), environment.WithProviders(source.Static(snapshot)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := Config{
+		Values:     []child.Config{old},
+		Pointers:   []*child.Config{&old},
+		Aliases:    []child.Pointer{&old},
+		Map:        map[string]child.Config{"one": old},
+		PointerMap: map[string]child.Pointer{"one": &old},
+	}
+	if err := target.BindProperties(env, "app"); err != nil {
+		t.Fatal(err)
+	}
+	for _, value := range []child.Config{target.Values[0], *target.Pointers[0], *target.Aliases[0], target.Map["one"], *target.PointerMap["one"]} {
+		if value.Keep != "" || value.Map["value"] != 9 || value.Slice[0] != 9 || *value.Pointer != 9 {
+			t.Fatalf("external element: %#v", value)
+		}
+	}
+	if old.Keep != "old" || old.Map["value"] != 1 || old.Slice[0] != 1 || *old.Pointer != 1 {
+		t.Fatal("old external element mutated")
+	}
+}

@@ -1,0 +1,12 @@
+package fixture
+
+import _ "github.com/longxi-go/nemo/pkg/binding"
+
+// +nemo:config:prefix=app
+type Config struct {
+	Value int
+}
+
+func bind(config *Config) {
+	_ = config.BindProperties(nil, "")
+}

@@ -1,0 +1,9 @@
+package child
+
+import _ "github.com/longxi-go/nemo/pkg/binding"
+
+// +nemo:config:prefix=child
+type Node struct {
+	Name string `default:"node"`
+	Next *Node
+}

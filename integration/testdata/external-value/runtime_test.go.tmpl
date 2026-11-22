@@ -1,0 +1,20 @@
+package consumer
+
+import (
+	"context"
+	"testing"
+
+	"github.com/longxi-go/nemo/pkg/binding"
+	"github.com/longxi-go/nemo/pkg/environment"
+)
+
+func TestExternalValue(t *testing.T) {
+	resolver, err := environment.New(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, err := binding.Bind[Config](resolver, "")
+	if err != nil || value.Child.Value != 7 {
+		t.Fatalf("external value binding failed: %#v %v", value, err)
+	}
+}

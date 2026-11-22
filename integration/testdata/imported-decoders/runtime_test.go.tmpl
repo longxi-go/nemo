@@ -1,0 +1,39 @@
+package decoder
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	gosr "github.com/longxi-go/gosr/pkg/environment"
+	"github.com/longxi-go/nemo/pkg/binding"
+	"github.com/longxi-go/nemo/pkg/environment"
+	"github.com/longxi-go/nemo/pkg/maptypes"
+	"github.com/longxi-go/nemo/pkg/source"
+)
+
+func TestBind(t *testing.T) {
+	provider, err := source.NewMap("test", maptypes.ValueMap{
+		"app.delay":  gosr.String("3s"),
+		"app.delays": gosr.List(gosr.String("1s"), gosr.String("2s")),
+		"app.ports":  gosr.List(gosr.String("8080"), gosr.String("9090")),
+		"app.count":  gosr.String("7"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolver, err := environment.New(context.Background(), environment.WithProviders(source.Static(provider)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, err := binding.Bind[Config](resolver, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if value.Delay == nil || *value.Delay != 3*time.Second ||
+		len(value.Delays) != 2 || value.Delays[1] != 2*time.Second ||
+		len(value.Ports) != 2 || value.Ports[1] != 9090 ||
+		value.Count == nil || *value.Count != 7 {
+		t.Fatalf("unexpected binding: %#v", value)
+	}
+}

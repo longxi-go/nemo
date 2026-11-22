@@ -1,0 +1,112 @@
+name: Docs Pages
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Published stable release tag to deploy (vX.Y.Z)
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      release_tag:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build published release documentation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: read
+    steps:
+      - name: Require an existing published stable release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || {
+            echo 'An explicit stable vX.Y.Z release tag is required.' >&2
+            exit 1
+          }
+          [[ "$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --json isDraft,isPrerelease --jq '.isDraft == false and .isPrerelease == false')" == true ]] || {
+            echo 'Pages requires an existing published stable release.' >&2
+            exit 1
+          }
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)" == "$RELEASE_TAG" ]] || {
+            echo 'Pages requires the current Latest stable release.' >&2
+            exit 1
+          }
+      - name: Check out released source
+        uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ inputs.release_tag }}
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Validate released notes
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: python3 scripts/release.py --tag "$RELEASE_TAG"
+      - name: Configure GitHub Pages
+        id: pages
+        uses: actions/configure-pages@v6
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.4.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: docs/design/uv.lock
+      - name: Build documentation from released source
+        env:
+          DOCS_SITE_URL: ${{ steps.pages.outputs.base_url }}/
+        run: make docs-build
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: docs/design/site
+
+  deploy:
+    name: Publish GitHub Pages
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check that the built release is still Latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)" == "$RELEASE_TAG" ]] || {
+            echo 'The built release was superseded; its documentation will not deploy.' >&2
+            exit 1
+          }
+      - name: Deploy released site
+        id: deployment
+        uses: actions/deploy-pages@v5

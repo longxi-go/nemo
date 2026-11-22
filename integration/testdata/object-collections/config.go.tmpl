@@ -1,0 +1,21 @@
+package consumer
+
+import _ "github.com/longxi-go/nemo/pkg/binding"
+
+// +nemo:config:prefix=app
+type Config struct {
+	Servers    []Server
+	Pointers   []*Server
+	Backends   map[string]Server
+	PointerMap map[string]*Server
+	Anonymous  []struct {
+		Port int
+	}
+	Keep []Server `property:"-"`
+	Last uint8
+}
+
+type Server struct {
+	Port int    `default:"8080"`
+	Keep string `property:"-"`
+}

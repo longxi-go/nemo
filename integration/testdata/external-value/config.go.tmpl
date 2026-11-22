@@ -1,0 +1,12 @@
+package consumer
+
+import (
+	"consumer/child"
+
+	_ "github.com/longxi-go/nemo/pkg/binding"
+)
+
+// +nemo:config:prefix=app
+type Config struct {
+	Child child.Config
+}

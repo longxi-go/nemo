@@ -1,0 +1,12 @@
+package child
+
+// +nemo:config:prefix=child
+type Config struct {
+	Value  int    `default:"1"`
+	Keep   string `property:"-"`
+	Nested *Nested
+}
+
+type Nested struct {
+	Enabled bool `default:"true"`
+}

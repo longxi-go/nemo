@@ -1,0 +1,42 @@
+package main
+
+import (
+	"consumer/child"
+	"time"
+)
+
+type Mode string
+
+func (m *Mode) UnmarshalText(b []byte) error {
+	*m = Mode("parsed-" + string(b))
+	return nil
+}
+
+type ObjectDatabase struct {
+	Host string `default:"fallback"`
+}
+
+type ObjectConfig struct {
+	Database ObjectDatabase `property:"db"`
+}
+
+type Nested struct {
+	Enabled bool `default:"true"`
+}
+
+// +nemo:config:prefix=app
+type Config struct {
+	Port         int8          `default:"80" required:"true"`
+	Name         string        `default:""`
+	Delay        time.Duration `default:"2s"`
+	Nested       *Nested
+	Delays       map[string]time.Duration
+	Limit        *int `default:"4"`
+	Labels       map[string]int
+	Modes        []Mode `default:"a,b"`
+	Object       ObjectConfig
+	ChildPointer *child.Config
+	Child        child.Config
+	Last         int8
+	Keep         string `property:"-"`
+}

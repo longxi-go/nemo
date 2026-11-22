@@ -1,0 +1,15 @@
+package consumer
+
+import "consumer/child"
+
+// +nemo:config:prefix=app
+type Config struct {
+	Next     *Config
+	External *child.Node
+}
+
+// +nemo:config:prefix=collections
+type Collections struct {
+	Next  *Collections
+	Items []child.Node
+}

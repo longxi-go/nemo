@@ -1,0 +1,31 @@
+package consumer
+
+import _ "github.com/longxi-go/nemo/pkg/binding"
+
+// +nemo:config:prefix=app
+type Node struct {
+	Name     string `default:"node"`
+	Next     *Node
+	Children []Node
+	Last     uint8
+}
+
+// +nemo:config:prefix=mutual
+type A struct {
+	B B
+}
+
+type B struct {
+	A *A
+}
+
+// +nemo:config:prefix=required
+type Required struct {
+	Next *Required `required:"true"`
+}
+
+// +nemo:config:prefix=guarded
+type Guarded struct {
+	Name string `required:"true"`
+	Next *Guarded
+}

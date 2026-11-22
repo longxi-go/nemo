@@ -1,0 +1,88 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate stable tag and publication prerequisites
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+      pages: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Validate release contract and GitHub Pages settings
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python3 scripts/release.py --tag "$RELEASE_TAG" --check-github --repository "$GITHUB_REPOSITORY"
+
+  checks:
+    name: Verify exact tagged source
+    needs: validate
+    uses: ./.github/workflows/quality.yml
+
+  publish:
+    name: Publish GitHub Release
+    needs: checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    outputs:
+      latest: ${{ steps.release.outputs.latest }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Publish maintained English release notes
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" > /dev/null
+          python3 scripts/release.py --tag "$RELEASE_TAG" \
+            --github-payload "$RUNNER_TEMP/nemo-release.json"
+          gh api --method POST "repos/$GITHUB_REPOSITORY/releases" \
+            --input "$RUNNER_TEMP/nemo-release.json"
+          latest=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)
+          if [[ "$latest" == "$RELEASE_TAG" ]]; then
+            echo 'latest=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'latest=false' >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy-site:
+    name: Deploy released documentation
+    needs: publish
+    if: needs.publish.outputs.latest == 'true'
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/docs-pages.yml
+    with:
+      release_tag: ${{ github.ref_name }}

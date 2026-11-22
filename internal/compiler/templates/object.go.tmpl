@@ -1,0 +1,68 @@
+{{define "object"}}{{$names := .Names}}{{with .Helper}}
+func {{.Name}}({{$names.Resolver}} {{$names.Environment}}.PropertyResolver, {{$names.Prefix}} string, {{$names.Next}} {{.Type}}, {{$names.Depth}} int) ({{.Type}}, error) {
+ if {{$names.Err}} := {{$names.Binding}}.CheckObjectDepth({{$names.Depth}}); {{$names.Err}} != nil {
+ return {{$names.Next}}, &{{$names.Environment}}.Error{Code: {{$names.Environment}}.ConversionFailed, Key: {{$names.Prefix}}, Cause: {{$names.Err}}}
+ }
+ {{range .Fields -}}
+ {
+ {{if .Recursive}}
+ {{$names.Present}}, {{$names.Err}} := {{$names.Binding}}.Present({{$names.Resolver}}, {{$names.Binding}}.Join({{$names.Prefix}}, {{quote .Key}}))
+ if {{$names.Err}} != nil {
+    return {{$names.Next}}, {{$names.Err}}
+}
+ if !{{$names.Present}} && !{{.Required}} {
+ {{$names.Next}}.{{.Name}} = nil
+ } else {
+ {{end}}
+ {{if .Mode.IsCollection -}}
+{{template "collection" (fieldView $names .)}}
+{{else if .Mode.IsRead -}}
+ {{$names.Value}}, {{$names.Err}} := {{.Reader}}({{$names.Resolver}}, {{$names.Binding}}.Join({{$names.Prefix}}, {{quote .Key}}), {{$names.Binding}}.ReadOptions{
+ Required: {{.Required}},
+ HasDefault: {{.HasDefault}},
+ Default: {{quote .Default}},
+ }, {{.Decoder}})
+ if {{$names.Err}} != nil {
+ return {{$names.Next}}, {{$names.Err}}
+ }
+ {{else -}}
+ {{if .Mode.IsExternal}}
+ if {{$names.Err}} := {{$names.Binding}}.CheckObjectDepth({{$names.Depth}}+1); {{$names.Err}} != nil {
+    return {{$names.Next}}, {{$names.Err}}
+}
+ {{end}}
+ {{$names.Scoped}}, {{$names.Err}} := {{$names.Binding}}.Nested({{$names.Resolver}}, {{$names.Binding}}.Join({{$names.Prefix}}, {{quote .Key}}), {{.Required}})
+ if {{$names.Err}} != nil {
+ return {{$names.Next}}, {{$names.Err}}
+ }
+ {{if .Mode.IsExternal -}}
+ {{if .Pointer -}}
+ {{$names.Value}} := {{.Helper}}({{$names.Next}}.{{.Name}})
+ {{else -}}
+ var {{$names.Value}} {{.Type}}
+ {{end -}}
+ if {{$names.Err}} := {{$names.Value}}.BindProperties({{$names.Scoped}}, {{$names.Binding}}.Join({{$names.Prefix}}, {{quote .Key}})); {{$names.Err}} != nil {
+ return {{$names.Next}}, {{$names.Err}}
+ }
+ {{else -}}
+ {{if .Pointer -}}
+ var {{$names.Current}} {{.Type}}
+ if {{$names.Next}}.{{.Name}} != nil {
+ {{$names.Current}} = *{{$names.Next}}.{{.Name}}
+ }
+ {{$names.Value}}, {{$names.Err}} := {{.Helper}}({{$names.Scoped}}, {{$names.Binding}}.Join({{$names.Prefix}}, {{quote .Key}}), {{$names.Current}}, {{$names.Depth}}+1)
+ {{else -}}
+ {{$names.Value}}, {{$names.Err}} := {{.Helper}}({{$names.Scoped}}, {{$names.Binding}}.Join({{$names.Prefix}}, {{quote .Key}}), {{$names.Next}}.{{.Name}}, {{$names.Depth}}+1)
+ {{end -}}
+ if {{$names.Err}} != nil {
+ return {{$names.Next}}, {{$names.Err}}
+ }
+ {{end -}}
+ {{end -}}
+ {{$names.Next}}.{{.Name}} = {{if and .Pointer (.Mode.IsLocal)}}&{{end}}{{$names.Value}}
+ {{if .Recursive}} } {{end}}
+ }
+ {{end}}
+ return {{$names.Next}}, nil
+}
+{{end}}{{end}}

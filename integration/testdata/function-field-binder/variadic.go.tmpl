@@ -1,0 +1,9 @@
+package child
+
+import gosr "github.com/longxi-go/gosr/pkg/environment"
+
+type Config struct{}
+
+func (*Config) BindProperties(gosr.PropertyResolver, ...string) error {
+	return nil
+}

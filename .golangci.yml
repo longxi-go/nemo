@@ -1,0 +1,20 @@
+version: "2"
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+  exclusions:
+    # `run` filters formatter findings through linter exclusions too.
+    generated: disable
+
+formatters:
+  enable:
+    - gofumpt
+  settings:
+    gofumpt:
+      extra-rules: false
+  exclusions:
+    generated: disable

@@ -1,0 +1,116 @@
+package consumer
+
+import (
+	"context"
+	"errors"
+	"reflect"
+	"testing"
+
+	gosr "github.com/longxi-go/gosr/pkg/environment"
+	"github.com/longxi-go/nemo/pkg/environment"
+	"github.com/longxi-go/nemo/pkg/maptypes"
+	"github.com/longxi-go/nemo/pkg/source"
+)
+
+func resolver(t *testing.T, values maptypes.ValueMap) gosr.PropertyResolver {
+	t.Helper()
+	snapshot, err := source.NewMap("objects", values)
+	if err != nil {
+		t.Fatal(err)
+	}
+	env, err := environment.New(context.Background(), environment.WithProviders(source.Static(snapshot)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return env
+}
+
+func TestObjectBindingCollections(t *testing.T) {
+	object := gosr.Object(maptypes.ValueMap{
+		"port": gosr.String("80"),
+	})
+	env := resolver(t, maptypes.ValueMap{
+		"app.servers":               gosr.List(object, gosr.Object(nil)),
+		"app.pointers":              gosr.List(object),
+		"app.backends.us.east.port": gosr.String("81"),
+		"app.pointermap": gosr.Object(maptypes.ValueMap{
+			"us.east": object,
+		}),
+		"app.anonymous": gosr.List(object),
+	})
+	old := Server{
+		Port: 1,
+		Keep: "old",
+	}
+	target := Config{
+		Servers:  []Server{old},
+		Pointers: []*Server{&old},
+		Keep:     []Server{old},
+	}
+	if err := target.BindProperties(env, "app"); err != nil {
+		t.Fatal(err)
+	}
+	if len(target.Servers) != 2 || target.Servers[0].Port != 80 || target.Servers[1].Port != 8080 || target.Servers[0].Keep != "" || target.Pointers[0].Port != 80 || target.Pointers[0] == &old || target.Backends["us"].Port != 8080 || target.PointerMap["us.east"].Port != 80 || target.Anonymous[0].Port != 80 || target.Keep[0].Keep != "old" {
+		t.Fatalf("collections: %#v", target)
+	}
+}
+
+func TestObjectBindingCollectionRollback(t *testing.T) {
+	old := Server{
+		Port: 1,
+		Keep: "old",
+	}
+	servers := []Server{old}
+	pointers := []*Server{&old}
+	backends := map[string]Server{"old": old}
+	target := Config{
+		Servers:  servers,
+		Pointers: pointers,
+		Backends: backends,
+	}
+	env := resolver(t, maptypes.ValueMap{
+		"app.servers": gosr.List(gosr.Object(maptypes.ValueMap{
+			"port": gosr.String("80"),
+		}), gosr.Object(maptypes.ValueMap{
+			"port": gosr.String("bad"),
+		})),
+	})
+	err := target.BindProperties(env, "app")
+	var detail *gosr.Error
+	if !errors.As(err, &detail) || detail.Key != "app.servers" || !reflect.DeepEqual(detail.Path, []string{"[1]", "port"}) {
+		t.Fatalf("error: %#v", detail)
+	}
+	if target.Servers[0] != old || servers[0] != old || pointers[0] != &old || backends["old"] != old {
+		t.Fatal("failed collection changed old storage")
+	}
+	env = resolver(t, maptypes.ValueMap{
+		"app.servers": gosr.List(gosr.Object(nil)),
+		"app.last":    gosr.String("256"),
+	})
+	if err := target.BindProperties(env, "app"); err == nil {
+		t.Fatal("late error accepted")
+	}
+	if servers[0] != old || old.Port != 1 || target.Backends["old"] != old {
+		t.Fatal("late failure changed old storage")
+	}
+}
+
+func TestObjectBindingCollectionPresence(t *testing.T) {
+	var target Config
+	if err := target.BindProperties(resolver(t, nil), "app"); err != nil {
+		t.Fatal(err)
+	}
+	if target.Servers != nil || target.Backends != nil {
+		t.Fatal("missing collections not nil")
+	}
+	env := resolver(t, maptypes.ValueMap{
+		"app.servers":  gosr.List(),
+		"app.backends": gosr.Object(nil),
+	})
+	if err := target.BindProperties(env, "app"); err != nil {
+		t.Fatal(err)
+	}
+	if target.Servers == nil || target.Backends == nil {
+		t.Fatal("explicit empty collection not allocated")
+	}
+}

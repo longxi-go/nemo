@@ -1,0 +1,27 @@
+package consumer
+
+import (
+	"context"
+	"testing"
+
+	bindapi "github.com/longxi-go/nemo/pkg/binding"
+	"github.com/longxi-go/nemo/pkg/environment"
+)
+
+func TestIdentifierCollisions(t *testing.T) {
+	snapshot, failure := environment.New(context.Background())
+	if failure != nil {
+		t.Fatal(failure)
+	}
+	actual, failure := bindapi.Bind[Config](snapshot, "")
+	if failure != nil {
+		t.Fatal(failure)
+	}
+	if actual.Binding != "binding" || actual.Gosr != 7 || actual.Next != "next" ||
+		actual.Resolver != "resolver" || actual.Prefix != "prefix" ||
+		actual.Current == nil || actual.Current.Value != "nested" || actual.Value != "value" ||
+		actual.Err != "err" || actual.Target != "target" || actual.Scoped != "scoped" ||
+		actual.Imported != "imported" || actual.Alias != "alias" || nemoBindConfig != 1 {
+		t.Fatalf("wrong generated binding: %#v", actual)
+	}
+}

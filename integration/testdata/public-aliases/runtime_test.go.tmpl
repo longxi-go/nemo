@@ -1,0 +1,69 @@
+package consumer
+
+import (
+	"consumer/child"
+	"context"
+	"testing"
+
+	gosr "github.com/longxi-go/gosr/pkg/environment"
+	"github.com/longxi-go/nemo/pkg/binding"
+	"github.com/longxi-go/nemo/pkg/environment"
+	"github.com/longxi-go/nemo/pkg/maptypes"
+	"github.com/longxi-go/nemo/pkg/source"
+)
+
+func TestPublicAliases(t *testing.T) {
+	resolver, err := environment.New(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, err := binding.Bind[Config](resolver, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if value.Child == nil || value.Child.Value != 7 || value.Alias == nil || value.Alias.Value != 7 || value.Label != "scalar" ||
+		len(value.Labels) != 2 || value.Labels[1] != "second" ||
+		value.Pointer == nil || *value.Pointer != "pointer" || value.Text.Value != "text" ||
+		len(value.Texts) != 2 || value.Texts[1].Value != "two" {
+		t.Fatalf("public alias binding failed: %#v", value)
+	}
+}
+
+func TestPointerAliasReplacesFromZero(t *testing.T) {
+	resolver, err := environment.New(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	original := &child.Config{
+		Value: 99,
+		Keep:  "kept",
+	}
+	target := Config{
+		Alias: original,
+	}
+	if err := target.BindProperties(resolver, "app"); err != nil {
+		t.Fatal(err)
+	}
+	if target.Alias == original || target.Alias.Value != 7 || target.Alias.Keep != "" || original.Value != 99 {
+		t.Fatal("successful pointer alias binding mutated original storage")
+	}
+	provider, err := source.NewMap("invalid", maptypes.ValueMap{
+		"app.last": gosr.String("300"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	invalid, err := environment.New(context.Background(), environment.WithProviders(source.Static(provider)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	target = Config{
+		Alias: original,
+	}
+	if err := target.BindProperties(invalid, "app"); err == nil {
+		t.Fatal("late conversion failure was accepted")
+	}
+	if target.Alias != original || original.Value != 99 || original.Keep != "kept" || nemoNewPointer != 1 {
+		t.Fatal("failed pointer alias binding mutated original storage")
+	}
+}

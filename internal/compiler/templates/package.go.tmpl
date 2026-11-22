@@ -1,0 +1,40 @@
+{{$names := .Names}}{{.Header}}package {{.Name}}
+
+{{if .Imports}}import (
+{{range .Imports}}{{.}}
+{{end}}){{end}}
+{{range .Binders}}
+// PropertyPrefix returns the default prefix for binding.Bind.
+func (*{{.Name}}) PropertyPrefix() string {
+ return {{quote .Prefix}}
+}
+
+// BindProperties replaces the target only after all fields bind successfully.
+func ({{$names.Target}} *{{.Name}}) BindProperties({{$names.Resolver}} {{$names.Environment}}.PropertyResolver, {{$names.Prefix}} string) error {
+ if {{$names.Target}} == nil || {{$names.Resolver}} == nil {
+ return &{{$names.Environment}}.Error{
+ Code: {{$names.Environment}}.InvalidState,
+ }
+ }
+ if {{$names.Prefix}} != "" {
+ if {{$names.Err}} := {{$names.Environment}}.ValidateKey({{$names.Prefix}}); {{$names.Err}} != nil {
+ return {{$names.Err}}
+ }
+ }
+ {{$names.Resolver}} = {{$names.Binding}}.Pin({{$names.Resolver}})
+ {{$names.Next}}, {{$names.Err}} := {{.Helper}}({{$names.Resolver}}, {{$names.Prefix}}, *{{$names.Target}}, 0)
+ if {{$names.Err}} != nil {
+ return {{$names.Err}}
+ }
+ *{{$names.Target}} = {{$names.Next}}
+ return nil
+}
+{{end}}
+{{if .NewPointer}}
+// Allocate through inference so exported aliases never expose private type names.
+func {{.NewPointer}}[P ~*T, T interface{}](_ P) *T {
+ var destination T
+ return &destination
+}
+{{end}}
+{{range .Helpers}}{{template "object" (view $names .)}}{{end}}

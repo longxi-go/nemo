@@ -1,0 +1,32 @@
+package consumer
+
+import (
+	"time"
+
+	_ "github.com/longxi-go/nemo/pkg/binding"
+)
+
+// +nemo:config:prefix=app
+type Config struct {
+	Name    string
+	Server  Server
+	Enabled bool
+	Timeout time.Duration
+	Tags    []string
+	Meta    struct {
+		Label string
+	}
+	Backends map[string]Server
+	Servers  []Server
+	Tree     *Tree
+	Missing  string `default:"fallback"`
+}
+
+type Server struct {
+	Port int
+}
+
+type Tree struct {
+	Name string
+	Next *Tree
+}

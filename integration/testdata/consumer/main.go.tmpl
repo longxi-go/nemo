@@ -1,0 +1,107 @@
+package main
+
+import (
+	"consumer/child"
+	"context"
+	"fmt"
+	"time"
+
+	gosr "github.com/longxi-go/gosr/pkg/environment"
+	"github.com/longxi-go/nemo/pkg/binding"
+	"github.com/longxi-go/nemo/pkg/environment"
+	"github.com/longxi-go/nemo/pkg/maptypes"
+	"github.com/longxi-go/nemo/pkg/source"
+)
+
+func main() {
+	s, err := source.NewMap("test", maptypes.ValueMap{
+		"app.object": gosr.Object(maptypes.ValueMap{
+			"db.host": gosr.String("actual"),
+		}),
+		"app.labels.one": gosr.String("1"),
+		"port":           gosr.String("7"),
+		"app.delays.one": gosr.String("1s"),
+	})
+	if err != nil {
+		panic(err)
+	}
+	e, err := environment.New(context.Background(), environment.WithProviders(source.Static(s)))
+	if err != nil {
+		panic(err)
+	}
+	config, err := binding.Bind[Config](e, "")
+	if err != nil {
+		panic(err)
+	}
+	if config.Object.Database.Host != "actual" || config.Port != 80 || config.Name != "" ||
+		config.Delay != 2*time.Second || !config.Nested.Enabled || config.Delays["one"] != time.Second ||
+		config.Labels["one"] != 1 || config.Modes[1] != "parsed-b" || config.Limit == nil || *config.Limit != 4 {
+		panic("invalid configuration")
+	}
+	ambiguousSource, _ := source.NewMap("ambiguous", maptypes.ValueMap{
+		"app.object": gosr.Object(maptypes.ValueMap{
+			"db.host": gosr.String("literal"),
+			"db": gosr.Object(maptypes.ValueMap{
+				"host": gosr.String("nested"),
+			}),
+		}),
+	})
+	ambiguous, _ := environment.New(context.Background(), environment.WithProviders(source.Static(ambiguousSource)))
+	preserved := Config{
+		Object: ObjectConfig{
+			Database: ObjectDatabase{
+				Host: "preserved",
+			},
+		},
+	}
+	if err := preserved.BindProperties(ambiguous, "app"); err == nil || preserved.Object.Database.Host != "preserved" {
+		panic("ambiguous object mapping accepted or target modified")
+	}
+	var root Config
+	if err := root.BindProperties(e, ""); err != nil || root.Port != 7 {
+		panic("root prefix semantics")
+	}
+	successful := Config{
+		Child: child.Config{
+			Keep: "value",
+		},
+		ChildPointer: &child.Config{
+			Keep: "pointer",
+		},
+	}
+	if err := successful.BindProperties(e, "app"); err != nil ||
+		successful.Child.Keep != "" || successful.ChildPointer.Keep != "" {
+		panic("external replacement inherited old state")
+	}
+	external := &child.Nested{
+		Enabled: false,
+	}
+	externalPointer := &child.Config{
+		Keep:   "pointer",
+		Nested: external,
+	}
+	old := Config{
+		Keep: "keep",
+		Nested: &Nested{
+			Enabled: false,
+		},
+		Child: child.Config{
+			Keep:   "value",
+			Nested: external,
+		},
+		ChildPointer: externalPointer,
+	}
+	bad, _ := source.NewMap("bad", maptypes.ValueMap{
+		"app.last": gosr.String("128"),
+	})
+	invalid, _ := environment.New(context.Background(), environment.WithProviders(source.Static(bad)))
+	if err = old.BindProperties(invalid, "app"); err == nil || old.Port != 0 || old.Keep != "keep" ||
+		old.Nested.Enabled || old.Child.Keep != "value" || old.Child.Nested != external ||
+		external.Enabled || old.ChildPointer != externalPointer || old.ChildPointer.Keep != "pointer" {
+		panic("transaction violated")
+	}
+	if err = (*Config)(nil).BindProperties(e, ""); err == nil {
+		panic("nil target accepted")
+	}
+	fmt.Println("OK")
+}

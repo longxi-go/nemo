@@ -1,0 +1,80 @@
+package consumer
+
+import (
+	"context"
+	"errors"
+	"testing"
+	"time"
+
+	gosr "github.com/longxi-go/gosr/pkg/environment"
+	"github.com/longxi-go/nemo/pkg/environment"
+	"github.com/longxi-go/nemo/pkg/maptypes"
+	"github.com/longxi-go/nemo/pkg/source"
+)
+
+func TestObjectBindingAnonymous(t *testing.T) {
+	env, err := environment.New(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var target Config
+	target.Value.Keep = "kept"
+	if err := target.BindProperties(env, "app"); err != nil {
+		t.Fatal(err)
+	}
+	if target.Value.Port != 8080 || target.Value.Keep != "kept" || target.Value.Timeout != 2*time.Second || target.Value.Nested.Name != "server" || target.Pointer == nil || !target.Pointer.Enabled {
+		t.Fatalf("anonymous binding: %#v", target)
+	}
+}
+
+func TestObjectBindingAnonymousRollback(t *testing.T) {
+	snapshot, err := source.NewMap("test", maptypes.ValueMap{
+		"app.last": gosr.String("256"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	env, err := environment.New(context.Background(), environment.WithProviders(source.Static(snapshot)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := Config{
+		Last: 7,
+	}
+	target.Value.Keep = "kept"
+	if err := target.BindProperties(env, "app"); err == nil {
+		t.Fatal("late error accepted")
+	}
+	if target.Value.Port != 0 || target.Value.Keep != "kept" || target.Pointer != nil || target.Last != 7 {
+		t.Fatalf("failure mutated target: %#v", target)
+	}
+}
+
+func TestObjectBindingAnonymousRequired(t *testing.T) {
+	var target Required
+	empty, err := environment.New(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := target.BindProperties(empty, "required"); !errors.Is(err, &gosr.Error{
+		Code: gosr.MissingProperty,
+	}) {
+		t.Fatal(err)
+	}
+	properties, err := source.NewMap("test", maptypes.ValueMap{
+		"required.nested.name": gosr.String("ok"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	env, err := environment.New(context.Background(), environment.WithProviders(source.Static(properties)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := target.BindProperties(env, "required"); err != nil {
+		t.Fatal(err)
+	}
+	if target.Nested.Name != "ok" {
+		t.Fatal("anonymous required input not applied")
+	}
+}

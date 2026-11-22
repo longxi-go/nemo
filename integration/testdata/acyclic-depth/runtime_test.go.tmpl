@@ -1,0 +1,33 @@
+package consumer
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	gosr "github.com/longxi-go/gosr/pkg/environment"
+	"github.com/longxi-go/nemo/pkg/environment"
+)
+
+func TestAcyclicObjectDepthBoundary(t *testing.T) {
+	env, err := environment.New(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var valid Depth64
+	if err := valid.BindProperties(env, "app"); err != nil {
+		t.Fatalf("64 objects below root: %v", err)
+	}
+	if valid.Next == nil {
+		t.Fatal("nonrecursive absent pointer not allocated")
+	}
+	var invalid Depth65
+	if err := invalid.BindProperties(env, "app"); !errors.Is(err, &gosr.Error{
+		Code: gosr.ConversionFailed,
+	}) {
+		t.Fatalf("65 objects below root: %v", err)
+	}
+	if invalid.Next != nil {
+		t.Fatal("failed depth limit committed target")
+	}
+}

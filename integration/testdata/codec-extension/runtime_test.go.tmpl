@@ -1,0 +1,101 @@
+package consumer
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"reflect"
+	"testing"
+	"time"
+
+	"github.com/longxi-go/nemo/pkg/binding"
+	"github.com/longxi-go/nemo/pkg/codec"
+	"github.com/longxi-go/nemo/pkg/environment"
+	"github.com/longxi-go/nemo/pkg/source"
+)
+
+func TestDiscoverRegisteredDSL(t *testing.T) {
+	builder := codec.NewRegistryBuilder()
+	if err := codec.RegisterBuiltins(builder); err != nil {
+		t.Fatal(err)
+	}
+	if err := builder.Register(codec.Definition{
+		Name:    "acme",
+		Aliases: []string{"conf.dsl"},
+		Decoder: DSLDecoder{},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	verifyFormat(t, "conf.dsl", builder.Build())
+	if _, err := source.Discover(source.Discovery{
+		Formats: []string{"conf.dsl"},
+	}); err == nil {
+		t.Fatal("DSL was discovered without its application catalog")
+	}
+}
+
+func TestFormatsBindEquivalentConfig(t *testing.T) {
+	for _, format := range []string{"yaml", "yml", "json", "toml", "ini", "properties"} {
+		t.Run(format, func(t *testing.T) {
+			verifyFormat(t, format, nil)
+		})
+	}
+}
+
+func verifyFormat(t *testing.T, format string, decoders codec.DecoderLookup) {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join("formats", "application."+format))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "application."+format), data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	env, err := environment.New(context.Background(), environment.WithDiscovery(source.Discovery{
+		Paths:    []string{dir},
+		Formats:  []string{format},
+		Decoders: decoders,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	target, err := binding.Bind[Config](env, "app")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := Config{
+		Name: "demo",
+		Server: Server{
+			Port: 8080,
+		},
+		Enabled: true,
+		Timeout: 2 * time.Second,
+		Tags:    []string{"one", "two"},
+		Missing: "fallback",
+	}
+	expected.Meta.Label = "combined"
+	expected.Backends = map[string]Server{
+		"east": {
+			Port: 81,
+		},
+	}
+	expected.Tree = &Tree{
+		Next: &Tree{
+			Name: "leaf",
+		},
+	}
+	if format != "ini" && format != "properties" {
+		expected.Servers = []Server{
+			{
+				Port: 80,
+			},
+			{
+				Port: 82,
+			},
+		}
+	}
+	if !reflect.DeepEqual(target, expected) {
+		t.Fatalf("%s: got %#v, want %#v", format, target, expected)
+	}
+}

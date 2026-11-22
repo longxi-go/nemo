@@ -1,0 +1,120 @@
+site_name: nemo Guide
+site_description: Immutable configuration environments and generated typed binding for Go
+site_url: !ENV [DOCS_SITE_URL, "https://longxi-go.github.io/nemo/"]
+site_author: The longxi-go/nemo Authors
+repo_name: longxi-go/nemo
+repo_url: https://github.com/longxi-go/nemo
+copyright: Copyright &copy; 2026 - present The longxi-go/nemo Authors
+
+validation:
+  links:
+    anchors: warn
+
+theme:
+  name: material
+  language: en
+  font: false
+  icon:
+    logo: material/code-braces
+    repo: fontawesome/brands/github
+  features:
+    - content.code.copy
+    - navigation.footer
+    - navigation.indexes
+    - navigation.sections
+    - navigation.tabs
+    - navigation.top
+    - navigation.tracking
+    - search.highlight
+    - search.suggest
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: amber
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: amber
+      toggle:
+        icon: material/toggle-switch-off
+        name: Switch to light mode
+
+plugins:
+  - i18n:
+      docs_structure: suffix
+      fallback_to_default: false
+      reconfigure_material: true
+      # Use bundled English search with Han boundaries; avoid a remote tokenizer.
+      reconfigure_search: false
+      languages:
+        - locale: en
+          default: true
+          name: English
+          build: true
+        - locale: zh
+          name: 简体中文
+          build: true
+          site_name: nemo 使用手册
+          site_description: Go 不可变配置环境与生成式类型安全绑定
+          nav:
+            - 概览: index.md
+            - 开始使用:
+                - 快速开始: quick-start.md
+            - 使用指南:
+                - 注释注解: annotations.md
+                - 配置语义: configuration.md
+                - 类型化绑定: binding.md
+                - 代码生成: generation.md
+                - 架构: architecture.md
+            - 参与开发:
+                - 开发指南: development.md
+          theme:
+            language: zh
+  - search:
+      lang: en
+      separator: '[\s\-]+|(?=[\u4e00-\u9fff])|(?<=[\u4e00-\u9fff])'
+  - minify:
+      minify_html: true
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+
+extra_css:
+  - assets/stylesheets/ecosystem.css
+
+extra:
+  generator: false
+
+nav:
+  - Overview: index.md
+  - Getting Started:
+      - Quick Start: quick-start.md
+  - User Guide:
+      - Comment Annotations: annotations.md
+      - Configuration: configuration.md
+      - Typed Binding: binding.md
+      - Code Generation: generation.md
+      - Architecture: architecture.md
+  - Contributing:
+      - Development: development.md

@@ -1,0 +1,41 @@
+package child
+
+import (
+	gosr "github.com/longxi-go/gosr/pkg/environment"
+	"github.com/longxi-go/nemo/pkg/binding"
+)
+
+type hiddenConfig struct {
+	Map     map[string]int
+	Slice   []int
+	Pointer *int
+	Keep    string
+}
+
+func (target *hiddenConfig) BindProperties(resolver gosr.PropertyResolver, prefix string) error {
+	value, err := binding.Read(resolver, binding.Join(prefix, "value"), binding.ReadOptions{
+		HasDefault: true,
+		Default:    "7",
+	}, binding.Signed[int])
+	if err != nil {
+		return err
+	}
+	// All reads succeeded. Mutating owned storage on success honors Bindable.
+	if target.Map == nil {
+		target.Map = make(map[string]int)
+	}
+	if len(target.Slice) == 0 {
+		target.Slice = make([]int, 1)
+	}
+	if target.Pointer == nil {
+		target.Pointer = new(int)
+	}
+	target.Map["value"] = value
+	target.Slice[0] = value
+	*target.Pointer = value
+	return nil
+}
+
+type Config = hiddenConfig
+
+type Pointer = *hiddenConfig

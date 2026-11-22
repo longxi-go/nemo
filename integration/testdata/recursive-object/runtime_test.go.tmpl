@@ -1,0 +1,150 @@
+package consumer
+
+import (
+	"context"
+	"errors"
+	"strings"
+	"testing"
+
+	gosr "github.com/longxi-go/gosr/pkg/environment"
+	"github.com/longxi-go/nemo/pkg/environment"
+	"github.com/longxi-go/nemo/pkg/maptypes"
+	"github.com/longxi-go/nemo/pkg/source"
+)
+
+func resolver(t *testing.T, values maptypes.ValueMap) gosr.PropertyResolver {
+	t.Helper()
+	snapshot, err := source.NewMap("recursive", values)
+	if err != nil {
+		t.Fatal(err)
+	}
+	env, err := environment.New(context.Background(), environment.WithProviders(source.Static(snapshot)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return env
+}
+
+func TestObjectBindingRecursivePresence(t *testing.T) {
+	node := Node{
+		Next: &Node{
+			Name: "old",
+		},
+	}
+	if err := node.BindProperties(resolver(t, nil), "app"); err != nil {
+		t.Fatal(err)
+	}
+	if node.Name != "node" || node.Next != nil {
+		t.Fatalf("absent recursion: %#v", node)
+	}
+	for _, value := range []gosr.Value{
+		{},
+		gosr.String("bad"),
+	} {
+		if err := node.BindProperties(resolver(t, maptypes.ValueMap{
+			"app.next": value,
+		}), "app"); !errors.Is(err, &gosr.Error{
+			Code: gosr.ConversionFailed,
+		}) {
+			t.Fatalf("invalid recursive input: %v", err)
+		}
+	}
+	if err := node.BindProperties(resolver(t, maptypes.ValueMap{
+		"app.next":     gosr.Object(nil),
+		"app.children": gosr.List(gosr.Object(nil)),
+	}), "app"); err != nil {
+		t.Fatal(err)
+	}
+	if node.Next == nil || node.Next.Name != "node" || node.Next.Next != nil || len(node.Children) != 1 || node.Children[0].Name != "node" {
+		t.Fatal("present recursion/defaults failed")
+	}
+	var required Required
+	if err := required.BindProperties(resolver(t, nil), "required"); !errors.Is(err, &gosr.Error{
+		Code: gosr.MissingProperty,
+	}) {
+		t.Fatalf("required recursive pointer: %v", err)
+	}
+}
+
+func TestObjectBindingMutualRecursion(t *testing.T) {
+	var target A
+	if err := target.BindProperties(resolver(t, nil), "mutual"); err != nil {
+		t.Fatal(err)
+	}
+	if target.B.A != nil {
+		t.Fatal("absent mutual pointer allocated")
+	}
+	if err := target.BindProperties(resolver(t, maptypes.ValueMap{
+		"mutual.b.a": gosr.Object(nil),
+	}), "mutual"); err != nil {
+		t.Fatal(err)
+	}
+	if target.B.A == nil || target.B.A.B.A != nil {
+		t.Fatal("mutual recursion failed")
+	}
+}
+
+func TestObjectBindingDepthBoundary(t *testing.T) {
+	for _, depth := range []int{64, 65} {
+		key := "app" + strings.Repeat(".next", depth)
+		env := resolver(t, maptypes.ValueMap{
+			key: gosr.Object(nil),
+		})
+		var target Node
+		err := target.BindProperties(env, "app")
+		if depth == 64 && err != nil {
+			t.Fatalf("64: %v", err)
+		}
+		if depth == 65 && !errors.Is(err, &gosr.Error{
+			Code: gosr.ConversionFailed,
+		}) {
+			t.Fatalf("65: %v", err)
+		}
+	}
+}
+
+func TestObjectBindingRecursiveRollback(t *testing.T) {
+	old := &Node{
+		Name: "old",
+	}
+	old.Next = old
+	target := Node{
+		Name: "root",
+		Next: old,
+	}
+	env := resolver(t, maptypes.ValueMap{
+		"app.next": gosr.Object(nil),
+		"app.last": gosr.String("256"),
+	})
+	if err := target.BindProperties(env, "app"); err == nil {
+		t.Fatal("late error accepted")
+	}
+	if target.Next != old || old.Next != old || old.Name != "old" || target.Name != "root" {
+		t.Fatal("old cyclic graph changed")
+	}
+}
+
+func TestAbsentRecursiveChildSkipsItsRequiredFields(t *testing.T) {
+	var target Guarded
+	env := resolver(t, maptypes.ValueMap{
+		"guarded.name": gosr.String("root"),
+	})
+	if err := target.BindProperties(env, "guarded"); err != nil {
+		t.Fatal(err)
+	}
+	if target.Next != nil {
+		t.Fatal("absent recursive child allocated")
+	}
+	env = resolver(t, maptypes.ValueMap{
+		"guarded.name": gosr.String("root"),
+		"guarded.next": gosr.Object(nil),
+	})
+	if err := target.BindProperties(env, "guarded"); !errors.Is(err, &gosr.Error{
+		Code: gosr.MissingProperty,
+	}) {
+		t.Fatal(err)
+	}
+	if target.Name != "root" || target.Next != nil {
+		t.Fatal("failed required child changed target")
+	}
+}

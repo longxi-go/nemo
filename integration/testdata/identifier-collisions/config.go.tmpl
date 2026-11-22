@@ -1,0 +1,49 @@
+package consumer
+
+import (
+	"consumer/child"
+
+	_ "github.com/longxi-go/nemo/pkg/binding"
+)
+
+type binding string
+
+type gosr int
+
+type next string
+
+type resolver string
+
+type prefix string
+
+type current struct {
+	Value string `default:"nested"`
+}
+
+type value string
+
+type err string
+
+type target string
+
+type scoped string
+
+type nemoType2 string
+
+var nemoBindConfig = 1
+
+// +nemo:config:prefix=app
+type Config struct {
+	Binding  binding  `default:"binding"`
+	Gosr     gosr     `default:"7"`
+	Next     next     `default:"next"`
+	Resolver resolver `default:"resolver"`
+	Prefix   prefix   `default:"prefix"`
+	Current  *current
+	Value    value       `default:"value"`
+	Err      err         `default:"err"`
+	Target   target      `default:"target"`
+	Scoped   scoped      `default:"scoped"`
+	Imported child.Label `default:"imported"`
+	Alias    nemoType2   `default:"alias"`
+}
