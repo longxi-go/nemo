@@ -10,6 +10,7 @@ checks require an authenticated GitHub CLI.
 | --- | --- | --- |
 | `golayout.py` | Resolve the declared golayout module and delegate source selection, formatting and headers to its shared scripts | `setup`, `format`, `check-format`, `test-format`, `license-headers`, `check-license-headers` |
 | `release.py` | Validate stable tags, module identity, dependency versions and notes; optionally inspect Pages settings and upstream Releases | `validate-release`, `preflight-release` |
+| `publish_release.py` | Verify the checked tag commit, create or reuse matching Release content and wait for Latest visibility | Release workflow |
 | `go_environment.py` | Reject process/persistent Go flags that can substitute a different module graph | `verify-environment` |
 | `go_module.py` | Parse a module file with `go mod edit -json` without resolving dependencies | Imported helper |
 
@@ -23,7 +24,9 @@ Configured proxy and checksum settings are retained.
 A real Go regression also verifies that missing checksums fail without changing
 `go.mod` or `go.sum`. Tests replace selected subprocess/API boundaries with controlled responses to
 exercise malformed data, missing scripts, denied tag policies and unpublished
-Releases without network requests. The formatter adapter tests check delegation;
+Releases without network requests. Publisher tests also cover delayed Latest visibility,
+conflicting published content and retries that must not repeat writes.
+The formatter adapter tests check delegation;
 `make test-format` exercises real golayout formatting and source selection.
 The GitHub preflight tests do not prove that live repository settings are correct;
 run `make preflight-release TAG=vX.Y.Z` for the live check.

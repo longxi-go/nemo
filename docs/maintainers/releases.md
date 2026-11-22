@@ -9,7 +9,8 @@ flowchart LR
     C --> D[Quality succeeds]
     D --> E[Push annotated vX.Y.Z tag]
     E --> F[Check tagged source]
-    F --> G[Publish GitHub Release]
+    J[Manual recovery with explicit tag] --> F
+    F --> G[Publish or verify GitHub Release]
     G --> H[Deploy released documentation]
     H --> I[Verify public installation and site]
 ```
@@ -55,6 +56,13 @@ checks Latest again before deployment, refusing a release superseded during its 
 stable Release. Branch and pull-request workflows build documentation without
 deploying it. A manual Pages deployment also requires the explicit current Latest stable tag.
 
+The publisher reuses an existing Release only when its tag, title, notes and stable
+status match the tagged source. It refuses conflicting content and a tag that no
+longer points to the checked commit. Latest lookup allows six attempts, five seconds
+apart, for HTTP 404, 429 and server errors or a still-visible older Latest selection.
+Authentication and permission errors fail immediately. An uncertain creation request
+is not repeated automatically.
+
 After the workflow succeeds, verify both documentation languages and test an
 independent consumer with `GOWORK=off`, no `replace` directives and a fresh module
 cache. Check `go get github.com/longxi-go/nemo@vX.Y.Z`, runtime configuration
@@ -62,6 +70,22 @@ loading, generated binding, and `go install github.com/longxi-go/nemo/cmd/nemoct
 Run `go mod verify` with checksum verification enabled. A successful source test
 or GitHub Release does not establish public module availability.
 
-Never move or reuse a published tag. A failed deployment caused by repository
-settings can be retried after correcting those settings. A source correction
-requires a new release version.
+## Recovery
+
+After correcting repository settings or the workflow, run **Release → Run workflow**
+from the reviewed `main` revision and supply the existing stable tag. The equivalent
+CLI command is:
+
+```sh
+gh workflow run release.yml --repo longxi-go/nemo --ref main -f release_tag=vX.Y.Z
+```
+
+The selected workflow revision supplies the publication scripts. Validation resolves
+the tag to a commit; every source check and the published notes use that exact commit.
+The run verifies or creates the Release and deploys Pages only if it is Latest.
+It does not replace an existing Release or move the tag. The original failed run
+remains in Actions history; the recovery produces a new run.
+
+Never move or reuse a published tag. Corrections to released library or CLI source
+require a new release version. A workflow correction can verify and deploy an
+existing version through the recovery entry point above.
