@@ -1,0 +1,5 @@
+company:
+  platform:
+    service:
+      name: alpha
+      address: 127.0.0.1:8081
