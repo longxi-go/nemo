@@ -20,6 +20,10 @@ import (
 	gosr "github.com/longxi-go/gosr/pkg/environment"
 )
 
+const (
+	cannotLoadConfigurationSourceMessage = "cannot load configuration source"
+)
+
 // InvalidationFunc requests a refresh without carrying transport-owned data.
 // A watcher must finish all callback invocations before Watch returns.
 type InvalidationFunc = func()
@@ -49,7 +53,7 @@ func failure(name, path string, cause error) error {
 			Source:   name,
 			Resource: path,
 		},
-		Message: "cannot load configuration source",
+		Message: cannotLoadConfigurationSourceMessage,
 		Cause:   cause,
 	}
 }

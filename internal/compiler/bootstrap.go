@@ -19,25 +19,31 @@ import (
 	"strings"
 )
 
+const (
+	bootstrapImportFormat  = "import %s %q\n"
+	bootstrapPackageFormat = "package %s\n"
+	bootstrapMethodsFormat = `func (*%s) BindProperties(%s.PropertyResolver, string) error {
+    return nil
+}
+
+func (*%s) PropertyPrefix() string {
+    return ""
+}
+`
+)
+
 // bootstrapSource exposes only generated method signatures, permitting first
 // generation without suppressing unrelated errors in the authored package.
 func bootstrapSource(packageName string, source scannedSource) []byte {
 	var stub strings.Builder
-	fmt.Fprintf(&stub, "package %s\n", packageName)
+	fmt.Fprintf(&stub, bootstrapPackageFormat, packageName)
 	if len(source.declarations) == 0 {
 		return []byte(stub.String())
 	}
 	alias := newIdentifiers(source.names).take(environmentImportAlias)
-	fmt.Fprintf(&stub, "import %s %q\n", alias, environmentImportPath)
+	fmt.Fprintf(&stub, bootstrapImportFormat, alias, environmentImportPath)
 	for _, declaration := range source.declarations {
-		fmt.Fprintf(&stub, `func (*%s) BindProperties(%s.PropertyResolver, string) error {
- return nil
-}
-
-func (*%s) PropertyPrefix() string {
- return ""
-}
-`, declaration.name, alias, declaration.name)
+		fmt.Fprintf(&stub, bootstrapMethodsFormat, declaration.name, alias, declaration.name)
 	}
 	return []byte(stub.String())
 }

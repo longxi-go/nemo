@@ -22,6 +22,11 @@ import (
 	"github.com/longxi-go/nemo/pkg/maptypes"
 )
 
+const (
+	nilNotificationErrorText  = "<nil>"
+	notificationFailureFormat = "environment: notification failed after committed revision %d"
+)
+
 // Changed identifies a committed transition. Old/New pin immutable generations;
 // Keys is a detached sorted list, read-only during delivery by event contract.
 // Concurrent notifications can overlap; use New.Revision to identify commits.
@@ -44,9 +49,9 @@ type NotificationError struct {
 
 func (e *NotificationError) Error() string {
 	if e == nil {
-		return "<nil>"
+		return nilNotificationErrorText
 	}
-	return fmt.Sprintf("environment: notification failed after committed revision %d", e.Revision)
+	return fmt.Sprintf(notificationFailureFormat, e.Revision)
 }
 
 // Unwrap preserves delivery causes without including secret payloads in Error.

@@ -21,6 +21,9 @@ import (
 	gosr "github.com/longxi-go/gosr/pkg/environment"
 )
 
+// Check cancellation periodically without adding a callback to every byte.
+const cancellationCheckBytes = 1024
+
 type operandResolverFunc = func(string) (gosr.Value, int, bool, error)
 
 type cancellationFunc = func() error
@@ -65,7 +68,7 @@ func (p parser) expand(text string) (string, int, error) {
 }
 
 func (p parser) checkAt(offset int) error {
-	if offset%1024 == 0 && p.check != nil {
+	if offset%cancellationCheckBytes == 0 && p.check != nil {
 		return p.check()
 	}
 	return nil
@@ -93,23 +96,32 @@ func (p parser) expandAt(text string, depth int, out *expansion) (int, error) {
 			if colon >= 0 {
 				keyEnd = colon
 			}
-			key := text[i+len(gosr.PlaceholderPrefix) : keyEnd]
-			if err := gosr.ValidateKey(key); err != nil {
+			keyText := text[i+len(gosr.PlaceholderPrefix) : keyEnd]
+			keyOutput := expansion{}
+			if strings.Contains(keyText, gosr.PlaceholderPrefix) {
+				keyOutput.charge = p.charge
+			}
+			keyHeight, err := p.expandAt(keyText, depth+1, &keyOutput)
+			if err != nil {
+				return 0, err
+			}
+			reference := propertyReference{
+				key:      keyOutput.text.String(),
+				expanded: keyHeight > 0,
+			}
+			if err := gosr.ValidateKey(reference.key); err != nil {
 				return 0, err
 			}
 			if depth == maxDepth {
 				return 0, failure(gosr.ResolutionLimit)
 			}
-			value, h, found, err := p.operand(key)
+			value, h, found, err := p.operand(reference.key)
 			if err != nil {
-				return 0, err
+				return 0, reference.failure(codeOf(err), err)
 			}
 			if !found {
 				if colon < 0 {
-					return 0, &gosr.Error{
-						Code: gosr.MissingProperty,
-						Key:  key,
-					}
+					return 0, reference.failure(gosr.MissingProperty, nil)
 				}
 				h, err = p.expandAt(text[colon+len(gosr.PlaceholderDefaultSeparator):end], depth+1, out)
 				if err != nil {
@@ -119,13 +131,10 @@ func (p parser) expandAt(text string, depth int, out *expansion) (int, error) {
 				var scalar bool
 				part, scalar = value.Scalar()
 				if !scalar {
-					return 0, &gosr.Error{
-						Code: gosr.InvalidValue,
-						Key:  key,
-					}
+					return 0, reference.failure(gosr.InvalidValue, nil)
 				}
 			}
-			h++
+			h = max(h, keyHeight) + 1
 			if depth+h > maxDepth {
 				return 0, failure(gosr.ResolutionLimit)
 			}

@@ -5,8 +5,16 @@ UV ?= uv
 GOLANGCI_LINT ?= golangci-lint
 TAG ?=
 REPOSITORY ?= longxi-go/nemo
+WORKSPACE ?=
 export GO GOLANGCI_LINT
+ifeq ($(strip $(WORKSPACE)),)
 override export GOWORK := off
+override export NEMO_TEST_WORKSPACE :=
+else
+# Keep directory-based discovery so isolated fixture modules stay independent.
+override export GOWORK :=
+override export NEMO_TEST_WORKSPACE := $(abspath $(WORKSPACE))
+endif
 override export GOTOOLCHAIN := local
 
 .PHONY: help setup format check-format test-format test race vet lint verify-mod check generate check-generated build
@@ -17,6 +25,7 @@ override export GOTOOLCHAIN := local
 help:
 	@printf '%s\n' 'Usage: make <target>' '' \
 	  '  help              Show this target list (default)' \
+	  '  check WORKSPACE=../go.work  Verify explicitly selected local dependencies' \
 	  '  license-headers   Refresh owned Go source license headers' \
 	  '  check-license-headers  Check source license headers without writes' \
 	  '  docs-setup        Install locked documentation dependencies (Python 3.12)' \
@@ -43,6 +52,10 @@ help:
 
 verify-environment:
 	@python3 scripts/go_environment.py
+	@if [ -n "$(WORKSPACE)" ]; then \
+	  test "$$($(GO) env GOWORK)" = "$(abspath $(WORKSPACE))" || \
+	  { printf '%s\n' 'WORKSPACE must match the go.work discovered from this checkout' >&2; exit 2; }; \
+	fi
 
 setup format check-format test-format license-headers check-license-headers test race vet lint verify-mod generate check-generated build validate-release: verify-environment
 

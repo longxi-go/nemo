@@ -16,13 +16,10 @@ package environment
 
 import (
 	"slices"
-	"strings"
 
 	gosr "github.com/longxi-go/gosr/pkg/environment"
 	"github.com/longxi-go/nemo/internal/resolution"
 )
-
-const profileNegationPrefix = "!"
 
 type snapshot struct {
 	resolver *resolution.Resolver
@@ -62,8 +59,8 @@ func (s *snapshot) AcceptsProfiles(predicates ...string) (bool, error) {
 	}
 	matches := false
 	for _, predicate := range predicates {
-		name, negated := strings.CutPrefix(predicate, profileNegationPrefix)
-		if err := gosr.ValidateProfile(name); err != nil {
+		name, negated, err := gosr.ParseProfilePredicate(predicate)
+		if err != nil {
 			return false, err
 		}
 		present := slices.Contains(effective, name)

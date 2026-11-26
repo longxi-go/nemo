@@ -27,6 +27,11 @@ import (
 	"github.com/longxi-go/nemo/pkg/maptypes"
 )
 
+const (
+	ambiguousObjectMemberAddressMessage = "ambiguous object member address"
+	invalidObjectMemberAddressMessage   = "invalid object member address"
+)
+
 // Nested validates composite presence and projects object members into descendant
 // addresses. Literal dots remain part of member names, while object nesting adds
 // separators. Two object paths producing one address are ambiguous and rejected,
@@ -93,10 +98,22 @@ func projectObject(prefix string, value gosr.Value, origin gosr.Origin, projecte
 		return err
 	}
 	budget := admission.New(context.Background(), limits.Default(), false)
-	return projectMembers(prefix, value, origin, projected, budget)
+	projection := objectProjection{
+		origin:     origin,
+		properties: projected,
+		budget:     budget,
+	}
+	return projection.members(prefix, value)
 }
 
-func projectMembers(prefix string, value gosr.Value, origin gosr.Origin, projected maptypes.PropertyMap, budget *admission.Budget) error {
+// objectProjection owns one bounded traversal and its collision table.
+type objectProjection struct {
+	origin     gosr.Origin
+	properties maptypes.PropertyMap
+	budget     *admission.Budget
+}
+
+func (p *objectProjection) members(prefix string, value gosr.Value) error {
 	fields := value.Fields()
 	members := make([]string, 0, len(fields))
 	for member := range fields {
@@ -109,32 +126,32 @@ func projectMembers(prefix string, value gosr.Value, origin gosr.Origin, project
 			return &gosr.Error{
 				Code:    gosr.ConversionFailed,
 				Key:     prefix,
-				Origin:  origin,
-				Message: "invalid object member address",
+				Origin:  p.origin,
+				Message: invalidObjectMemberAddressMessage,
 				Cause:   err,
 			}
 		}
-		if _, exists := projected[address]; exists {
+		if _, exists := p.properties[address]; exists {
 			return &gosr.Error{
 				Code:    gosr.ConversionFailed,
 				Key:     address,
-				Origin:  origin,
-				Message: "ambiguous object member address",
+				Origin:  p.origin,
+				Message: ambiguousObjectMemberAddressMessage,
 			}
 		}
 		item := fields[member]
-		if err := limits.Check(limits.Properties, int64(len(projected))+1, int64(limits.DefaultProperties)); err != nil {
+		if err := limits.Check(limits.Properties, int64(len(p.properties))+1, int64(limits.DefaultProperties)); err != nil {
 			return err
 		}
-		if err := budget.Bytes(len(address)); err != nil {
+		if err := p.budget.Bytes(len(address)); err != nil {
 			return err
 		}
-		projected[address] = gosr.Property{
+		p.properties[address] = gosr.Property{
 			Value:  item,
-			Origin: origin,
+			Origin: p.origin,
 		}
 		if item.Kind() == gosr.ObjectKind {
-			if err := projectMembers(address, item, origin, projected, budget); err != nil {
+			if err := p.members(address, item); err != nil {
 				return err
 			}
 		}

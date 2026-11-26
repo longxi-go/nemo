@@ -19,6 +19,11 @@ import (
 	"os"
 )
 
+const (
+	nonRegularOutputFormat                          = "generated output destination is not a regular file: %s"
+	refusingToReplaceUnownedGeneratedFilenameFormat = "refusing to replace unowned generated filename: %s"
+)
+
 // Discovery must enforce output ownership before overlays hide an existing file.
 // All read-only modes use this check too; a successful check must not endorse a
 // symlink destination that the shared committer would refuse to replace.
@@ -31,14 +36,14 @@ func readGeneratedOutput(path string) ([]byte, bool, error) {
 		return nil, false, err
 	}
 	if !info.Mode().IsRegular() {
-		return nil, false, fmt.Errorf("generated output destination is not a regular file: %s", path)
+		return nil, false, fmt.Errorf(nonRegularOutputFormat, path)
 	}
 	current, err := os.ReadFile(path)
 	if err != nil {
 		return nil, false, err
 	}
 	if !ownsGeneratedOutput(path, current) {
-		return nil, false, fmt.Errorf("refusing to replace unowned generated filename: %s", path)
+		return nil, false, fmt.Errorf(refusingToReplaceUnownedGeneratedFilenameFormat, path)
 	}
 	return current, true, nil
 }

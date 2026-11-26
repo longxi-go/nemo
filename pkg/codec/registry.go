@@ -22,6 +22,10 @@ import (
 	"github.com/longxi-go/nemo/pkg/maptypes"
 )
 
+const (
+	invalidOrUnregisteredConfigurationFormatMessage = "invalid or unregistered configuration format"
+)
+
 // Format names have their own grammar, independent of property addresses.
 const (
 	formatSegmentSeparator = '.'
@@ -74,7 +78,10 @@ func formatName(format string) (string, bool) {
 		if segmentStart && !alphaNumeric {
 			return "", false
 		}
-		if !alphaNumeric && c != formatWordUnderscore && c != formatWordSeparator && c != formatSegmentSeparator {
+		if !alphaNumeric &&
+			c != formatWordUnderscore &&
+			c != formatWordSeparator &&
+			c != formatSegmentSeparator {
 			return "", false
 		}
 		segmentStart = c == formatSegmentSeparator
@@ -85,6 +92,6 @@ func formatName(format string) (string, bool) {
 func registryError(code gosr.Code) error {
 	return &gosr.Error{
 		Code:    code,
-		Message: "invalid or unregistered configuration format",
+		Message: invalidOrUnregisteredConfigurationFormatMessage,
 	}
 }

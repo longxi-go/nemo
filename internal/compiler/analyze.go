@@ -28,6 +28,15 @@ import (
 	"sigs.k8s.io/controller-tools/pkg/markers"
 )
 
+const (
+	goEnvCommand                              = "env"
+	moduleCacheVariable                       = "GOMODCACHE"
+	locateModuleCacheFormat                   = "locate module cache: %w"
+	packageIsADependencyGenerateItInItsFormat = "package %s is a dependency; generate it in its owning module"
+	packageNoGoFilesFormat                    = "package %s: no Go files"
+	refusingOutputInsideModuleCacheFormat     = "refusing output inside module cache: %s"
+)
+
 func analyze(ctx context.Context, o Options) (analysis, error) {
 	a := analysis{
 		declarations: make(maptypes.StringMap[[]declaration]),
@@ -59,7 +68,7 @@ func analyze(ctx context.Context, o Options) (analysis, error) {
 	}
 	for _, pkg := range initial {
 		if len(pkg.GoFiles) == 0 {
-			return a, fmt.Errorf("package %s: no Go files", pkg.PkgPath)
+			return a, fmt.Errorf(packageNoGoFilesFormat, pkg.PkgPath)
 		}
 		dir := filepath.Dir(pkg.GoFiles[0])
 		generated := filepath.Join(dir, generatedFileName)
@@ -76,19 +85,20 @@ func analyze(ctx context.Context, o Options) (analysis, error) {
 		a.declarations[pkg.PkgPath] = source.declarations
 		if len(source.declarations) > 0 || a.owned[pkg.PkgPath] {
 			if pkg.Module != nil && !pkg.Module.Main {
-				return a, fmt.Errorf("package %s is a dependency; generate it in its owning module", pkg.PkgPath)
+				return a, fmt.Errorf(packageIsADependencyGenerateItInItsFormat, pkg.PkgPath)
 			}
-			cache, err := exec.CommandContext(ctx, goExecutable, "env", "GOMODCACHE").Output()
+			cache, err := exec.CommandContext(ctx, goExecutable, goEnvCommand, moduleCacheVariable).Output()
 			if err != nil {
-				return a, fmt.Errorf("locate module cache: %w", err)
+				return a, fmt.Errorf(locateModuleCacheFormat, err)
 			}
 			relative, err := filepath.Rel(strings.TrimSpace(string(cache)), dir)
 			if err != nil {
 				return a, err
 			}
 			outsidePrefix := parentDirectory + string(filepath.Separator)
-			if relative == currentDirectory || (relative != parentDirectory && !strings.HasPrefix(relative, outsidePrefix)) {
-				return a, fmt.Errorf("refusing output inside module cache: %s", dir)
+			if relative == currentDirectory ||
+				(relative != parentDirectory && !strings.HasPrefix(relative, outsidePrefix)) {
+				return a, fmt.Errorf(refusingOutputInsideModuleCacheFormat, dir)
 			}
 
 			a.overlay[generated] = bootstrapSource(pkg.Name, source)

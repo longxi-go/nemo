@@ -221,10 +221,16 @@ func TestPublicationAndValidator(t *testing.T) {
 		t.Fatal("publisher reentry deadlock")
 	}
 	var notification *env.NotificationError
-	if !errors.As(err, &notification) || !errors.Is(err, cause) || notification.Revision != 2 || strings.Contains(err.Error(), cause.Error()) {
+	if !errors.As(err, &notification) ||
+		!errors.Is(err, cause) ||
+		notification.Revision != 2 ||
+		strings.Contains(err.Error(), cause.Error()) {
 		t.Fatal(err)
 	}
-	if len(changes) != 1 || changes[0].Old.Revision() != 1 || changes[0].New.Revision() != 2 || strings.Join(changes[0].Keys, ",") != "a,gone" {
+	if len(changes) != 1 ||
+		changes[0].Old.Revision() != 1 ||
+		changes[0].New.Revision() != 2 ||
+		strings.Join(changes[0].Keys, ",") != "a,gone" {
 		t.Fatal(changes)
 	}
 	changes[0].Keys[0] = "mutated"

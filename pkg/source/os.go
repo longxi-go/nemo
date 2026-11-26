@@ -60,10 +60,14 @@ func (p osProvider) Fetch(ctx context.Context) (gosr.PropertySource, error) {
 	values := make(maptypes.PropertyMap)
 	for _, entry := range os.Environ() {
 		name, value, ok := strings.Cut(entry, osAssignmentSeparator)
-		if !ok || !strings.HasPrefix(name, p.prefix) {
+		if !ok {
 			continue
 		}
-		key := strings.ToLower(strings.TrimPrefix(name, p.prefix))
+		key, matched := strings.CutPrefix(name, p.prefix)
+		if !matched {
+			continue
+		}
+		key = strings.ToLower(key)
 		key = strings.ReplaceAll(key, osPropertySegmentSeparator, propertypath.Separator)
 		if err := gosr.ValidateKey(key); err != nil {
 			return nil, failure(p.name, osEnvironmentResource, err)

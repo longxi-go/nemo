@@ -25,8 +25,10 @@ import (
 )
 
 const (
-	sourceHeaderDirectory = "codequality"
-	sourceHeaderFileName  = "HEADER"
+	sourceHeaderFormat                          = "source header %s: %w"
+	sourceHeaderOutputModuleIsUnavailableFormat = "source header %s: output module is unavailable"
+	sourceHeaderDirectory                       = "codequality"
+	sourceHeaderFileName                        = "HEADER"
 )
 
 // A workspace can generate several modules at once. Cache notices by the
@@ -46,7 +48,7 @@ func licenseGeneration(ctx context.Context, g *generation) error {
 		out := &g.outputs[i]
 		dir := modules[out.file.Package]
 		if dir == "" {
-			return fmt.Errorf("source header %s: output module is unavailable", out.file.Path)
+			return fmt.Errorf(sourceHeaderOutputModuleIsUnavailableFormat, out.file.Path)
 		}
 		notice, read := notices[dir]
 		if !read {
@@ -62,7 +64,7 @@ func licenseGeneration(ctx context.Context, g *generation) error {
 		}
 		updated, err := header.Source(out.Content, notice)
 		if err != nil {
-			return fmt.Errorf("source header %s: %w", out.file.Path, err)
+			return fmt.Errorf(sourceHeaderFormat, out.file.Path, err)
 		}
 		out.Content = updated
 	}

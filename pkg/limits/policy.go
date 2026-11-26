@@ -21,13 +21,15 @@ import (
 )
 
 const (
-	DefaultDocumentBytes int64 = 8 << 20
-	DefaultSources             = 256
-	DefaultProperties          = 10000
-	DefaultValueDepth          = 64
-	DefaultValueNodes          = 100000
-	DefaultValueBytes    int64 = 16 << 20
-	DefaultResolvedBytes int64 = 16 << 20
+	invalidResourceLimitsMessage       = "invalid resource limits"
+	maximumValueDepth                  = 1024
+	DefaultDocumentBytes         int64 = 8 << 20
+	DefaultSources                     = 256
+	DefaultProperties                  = 10000
+	DefaultValueDepth                  = 64
+	DefaultValueNodes                  = 100000
+	DefaultValueBytes            int64 = 16 << 20
+	DefaultResolvedBytes         int64 = 16 << 20
 )
 
 // Policy sets document, source and candidate resource limits. Fields must be
@@ -45,23 +47,29 @@ type Policy struct {
 // Default returns the default limits by value.
 func Default() Policy {
 	return Policy{
-		DefaultDocumentBytes,
-		DefaultSources,
-		DefaultProperties,
-		DefaultValueDepth,
-		DefaultValueNodes,
-		DefaultValueBytes,
-		DefaultResolvedBytes,
+		MaxDocumentBytes: DefaultDocumentBytes,
+		MaxSources:       DefaultSources,
+		MaxProperties:    DefaultProperties,
+		MaxValueDepth:    DefaultValueDepth,
+		MaxValueNodes:    DefaultValueNodes,
+		MaxValueBytes:    DefaultValueBytes,
+		MaxResolvedBytes: DefaultResolvedBytes,
 	}
 }
 
 // Validate rejects unlimited or overflowing budgets. Depth is capped at 1024
 // because downstream parsers and binders may use bounded recursive traversal.
 func (p Policy) Validate() error {
-	if p.MaxDocumentBytes <= 0 || p.MaxDocumentBytes == math.MaxInt64 || p.MaxSources <= 0 || p.MaxProperties <= 0 || p.MaxValueDepth <= 0 || p.MaxValueDepth > 1024 || p.MaxValueNodes <= 0 || p.MaxValueBytes <= 0 || p.MaxResolvedBytes <= 0 {
+	if p.MaxDocumentBytes <= 0 || p.MaxDocumentBytes == math.MaxInt64 ||
+		p.MaxSources <= 0 ||
+		p.MaxProperties <= 0 ||
+		p.MaxValueDepth <= 0 || p.MaxValueDepth > maximumValueDepth ||
+		p.MaxValueNodes <= 0 ||
+		p.MaxValueBytes <= 0 ||
+		p.MaxResolvedBytes <= 0 {
 		return &gosr.Error{
 			Code:    gosr.InvalidValue,
-			Message: "invalid resource limits",
+			Message: invalidResourceLimitsMessage,
 		}
 	}
 	return nil

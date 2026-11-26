@@ -63,7 +63,10 @@ func TestObjectListScopeIsolation(t *testing.T) {
 	_, err = binding.Read(inputs[1].Resolver, binding.Join(inputs[1].Prefix, "port"), binding.ReadOptions{}, binding.Signed[int])
 	wrapped := inputs[1].Wrap(err)
 	var detail *gosr.Error
-	if !errors.As(wrapped, &detail) || detail.Key != "app.servers" || detail.Origin.Source != "objects" || !reflect.DeepEqual(detail.Path, []string{"[1]", "port"}) {
+	if !errors.As(wrapped, &detail) ||
+		detail.Key != "app.servers" ||
+		detail.Origin.Source != "objects" ||
+		!reflect.DeepEqual(detail.Path, []string{"[1]", "port"}) {
 		t.Fatalf("element diagnostic: %#v", detail)
 	}
 	var original *gosr.Error

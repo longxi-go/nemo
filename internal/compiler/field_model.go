@@ -15,7 +15,7 @@
 package compiler
 
 import (
-	"fmt"
+	"errors"
 	"go/types"
 	"reflect"
 	"strings"
@@ -23,10 +23,23 @@ import (
 	gosr "github.com/longxi-go/gosr/pkg/environment"
 )
 
+const (
+	bindingRead                         = "Read"
+	bindingReadMap                      = "ReadMap"
+	requiredFalse                       = "false"
+	requiredTrue                        = "true"
+	unexportedBoundFieldMessage         = "unexported bound field; mark property:\"-\" to preserve"
+	embeddedFieldsAreUnsupportedMessage = "embedded fields are unsupported"
+	invalidDefaultForFieldTypeMessage   = "invalid default for field type"
+	invalidPropertyTagMessage           = "invalid property tag"
+	mapsRequireStringKeysMessage        = "maps require string keys"
+	requiredMustBeTrueOrFalseMessage    = "required must be true or false"
+)
+
 func (m *modeler) field(field *types.Var, rawTag string) (fieldModel, bool, error) {
 	value := fieldModel{
 		Name:   field.Name(),
-		Reader: m.names.Binding + goSelector + "Read",
+		Reader: m.names.Binding + goSelector + bindingRead,
 		Mode:   fieldModeRead,
 	}
 	if err := validateTags(rawTag); err != nil {
@@ -38,29 +51,29 @@ func (m *modeler) field(field *types.Var, rawTag string) (fieldModel, bool, erro
 		return value, true, nil
 	}
 	if field.Embedded() {
-		return value, false, fmt.Errorf("embedded fields are unsupported")
+		return value, false, errors.New(embeddedFieldsAreUnsupportedMessage)
 	}
 	if !field.Exported() {
-		return value, false, fmt.Errorf("unexported bound field; mark property:\"-\" to preserve")
+		return value, false, errors.New(unexportedBoundFieldMessage)
 	}
 	if !hasKey {
 		key = strings.ToLower(field.Name())
 	}
 	if err := gosr.ValidateKey(key); err != nil {
-		return value, false, fmt.Errorf("invalid property tag")
+		return value, false, errors.New(invalidPropertyTagMessage)
 	}
 	value.Key = key
 	value.Default, value.HasDefault = tag.Lookup(defaultTag)
 	if value.HasDefault {
 		if err := validateDefault(field.Type(), value.Default, m.pkg.TypesSizes); err != nil {
-			return value, false, fmt.Errorf("invalid default for field type")
+			return value, false, errors.New(invalidDefaultForFieldTypeMessage)
 		}
 	}
 	if raw, ok := tag.Lookup(requiredTag); ok {
-		if raw != "true" && raw != "false" {
-			return value, false, fmt.Errorf("required must be true or false")
+		if raw != requiredTrue && raw != requiredFalse {
+			return value, false, errors.New(requiredMustBeTrueOrFalseMessage)
 		}
-		value.Required = raw == "true"
+		value.Required = raw == requiredTrue
 	}
 	if object, err := m.objectField(field.Type(), &value); object || err != nil {
 		return value, false, err
@@ -76,9 +89,9 @@ func (m *modeler) field(field *types.Var, rawTag string) (fieldModel, bool, erro
 		value.Decoder, err = m.decoder(declared, false)
 	} else if mp, ok := typ.Underlying().(*types.Map); ok {
 		if !types.Identical(mp.Key(), types.Typ[types.String]) {
-			return value, false, fmt.Errorf("maps require string keys")
+			return value, false, errors.New(mapsRequireStringKeysMessage)
 		}
-		value.Reader = m.names.Binding + goSelector + "ReadMap"
+		value.Reader = m.names.Binding + goSelector + bindingReadMap
 		value.Decoder, err = m.decoder(mp.Elem(), true)
 	} else {
 		value.Decoder, err = m.decoder(declared, false)

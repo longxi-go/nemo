@@ -15,12 +15,19 @@
 package binding
 
 import (
-	"fmt"
+	"errors"
 	"math"
 	"strconv"
 	"time"
 
 	gosr "github.com/longxi-go/gosr/pkg/environment"
+)
+
+const (
+	expectedFiniteFloatMessage   = "expected finite float"
+	expectedScalarMessage        = "expected scalar"
+	expectedStringMessage        = "expected string"
+	typedConversionFailedMessage = "typed conversion failed"
 )
 
 // conversionFailure keeps application-provided parsing details reachable only
@@ -31,7 +38,7 @@ func conversionFailure(cause error) error {
 	}
 	return &gosr.Error{
 		Code:    gosr.ConversionFailed,
-		Message: "typed conversion failed",
+		Message: typedConversionFailedMessage,
 		Cause:   cause,
 	}
 }
@@ -39,7 +46,7 @@ func conversionFailure(cause error) error {
 func scalar(v gosr.Value) (string, error) {
 	s, ok := v.Scalar()
 	if !ok {
-		return "", conversionFailure(fmt.Errorf("expected scalar"))
+		return "", conversionFailure(errors.New(expectedScalarMessage))
 	}
 	return s, nil
 }
@@ -47,7 +54,7 @@ func scalar(v gosr.Value) (string, error) {
 // String accepts only strings, preventing implicit object or null coercion.
 func String[T ~string](v gosr.Value) (T, error) {
 	if v.Kind() != gosr.StringKind {
-		return "", conversionFailure(fmt.Errorf("expected string"))
+		return "", conversionFailure(errors.New(expectedStringMessage))
 	}
 	s, _ := v.Scalar()
 	return T(s), nil
@@ -116,7 +123,7 @@ func Float[T ~float32 | ~float64](v gosr.Value) (T, error) {
 		return 0, conversionFailure(err)
 	}
 	if math.IsNaN(float64(result)) || math.IsInf(float64(result), 0) {
-		return 0, conversionFailure(fmt.Errorf("expected finite float"))
+		return 0, conversionFailure(errors.New(expectedFiniteFloatMessage))
 	}
 	return result, nil
 }

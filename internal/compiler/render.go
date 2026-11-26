@@ -24,8 +24,11 @@ import (
 )
 
 const (
-	templatePattern     = "templates/*.go.tmpl"
-	packageTemplateName = "package.go.tmpl"
+	fieldViewTemplateFunc  = "fieldView"
+	objectViewTemplateFunc = "view"
+	quoteTemplateFunc      = "quote"
+	templatePattern        = "templates/*.go.tmpl"
+	packageTemplateName    = "package.go.tmpl"
 )
 
 //go:embed templates/*.go.tmpl
@@ -33,9 +36,9 @@ var templateSources embed.FS
 
 func renderModels(models []preparedPackage) ([]output, error) {
 	t, err := render.ParseFS(templateSources, template.FuncMap{
-		"quote":     strconv.Quote,
-		"view":      objectView,
-		"fieldView": fieldView,
+		quoteTemplateFunc:      strconv.Quote,
+		objectViewTemplateFunc: objectView,
+		fieldViewTemplateFunc:  fieldView,
 	}, templatePattern)
 	if err != nil {
 		return nil, err

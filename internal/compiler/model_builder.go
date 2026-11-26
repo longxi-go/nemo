@@ -25,6 +25,12 @@ import (
 	"github.com/longxi-go/nemo/pkg/maptypes"
 )
 
+const (
+	bindableTypeName       = "Bindable"
+	goImportAliasSeparator = " "
+	invalidConfigFormat    = "invalid config %s"
+)
+
 func buildModels(a analysis) ([]preparedPackage, error) {
 	var models []preparedPackage
 	for _, pkg := range a.packages {
@@ -39,7 +45,7 @@ func buildModels(a analysis) ([]preparedPackage, error) {
 		}
 		if len(decls) > 0 {
 			environment := pkg.Imports[environmentImportPath]
-			m.bindable = environment.Types.Scope().Lookup("Bindable").Type().Underlying().(*types.Interface)
+			m.bindable = environment.Types.Scope().Lookup(bindableTypeName).Type().Underlying().(*types.Interface)
 		}
 		m.names = newGeneratedNames(m.identifiers)
 		m.imports = imports.New(pkg.PkgPath, m.importAlias)
@@ -56,7 +62,7 @@ func buildModels(a analysis) ([]preparedPackage, error) {
 		for _, d := range decls {
 			named, ok := pkg.Types.Scope().Lookup(d.name).Type().(*types.Named)
 			if !ok {
-				return nil, fmt.Errorf("invalid config %s", d.name)
+				return nil, fmt.Errorf(invalidConfigFormat, d.name)
 			}
 			helper, err := m.objectHelper(named)
 			if err != nil {
@@ -78,7 +84,7 @@ func buildModels(a analysis) ([]preparedPackage, error) {
 				return nil, err
 			}
 			for _, entry := range entries {
-				model.Imports = append(model.Imports, entry.Alias+" "+strconv.Quote(entry.Path))
+				model.Imports = append(model.Imports, entry.Alias+goImportAliasSeparator+strconv.Quote(entry.Path))
 			}
 		}
 		sort.Strings(model.Imports)

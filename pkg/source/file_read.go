@@ -23,6 +23,10 @@ import (
 	"github.com/longxi-go/nemo/pkg/limits"
 )
 
+const (
+	configurationIsNotARegularFileMessage = "configuration is not a regular file"
+)
+
 // read rejects special files before opening and checks the opened descriptor too.
 // Concurrent replacement between Stat and Open remains possible.
 func (p fileProvider) read(ctx context.Context) (data []byte, err error) {
@@ -31,7 +35,7 @@ func (p fileProvider) read(ctx context.Context) (data []byte, err error) {
 		return nil, err
 	}
 	if !info.Mode().IsRegular() {
-		return nil, errors.New("configuration is not a regular file")
+		return nil, errors.New(configurationIsNotARegularFileMessage)
 	}
 	file, err := os.Open(p.path)
 	if err != nil {
@@ -45,7 +49,7 @@ func (p fileProvider) read(ctx context.Context) (data []byte, err error) {
 		return nil, err
 	}
 	if !info.Mode().IsRegular() {
-		return nil, errors.New("configuration is not a regular file")
+		return nil, errors.New(configurationIsNotARegularFileMessage)
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err

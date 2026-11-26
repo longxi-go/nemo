@@ -16,12 +16,18 @@ package binding
 
 import (
 	"encoding/csv"
-	"fmt"
+	"errors"
 	"strings"
 
 	gosr "github.com/longxi-go/gosr/pkg/environment"
 	"github.com/longxi-go/nemo/internal/propertypath"
 	"github.com/longxi-go/nemo/pkg/maptypes"
+)
+
+const (
+	expectedListMessage         = "expected list"
+	expectedObjectMessage       = "expected object"
+	expectedOneCSVRecordMessage = "expected one CSV record"
 )
 
 // List accepts portable lists or a single CSV record for scalar defaults.
@@ -45,13 +51,13 @@ func List[T any](decode gosr.ValueDecoderFunc[T], v gosr.Value) ([]T, error) {
 			return nil, conversionFailure(err)
 		}
 		if len(fields) != 1 {
-			return nil, conversionFailure(fmt.Errorf("expected one CSV record"))
+			return nil, conversionFailure(errors.New(expectedOneCSVRecordMessage))
 		}
 		for _, field := range fields[0] {
 			items = append(items, gosr.String(field))
 		}
 	default:
-		return nil, conversionFailure(fmt.Errorf("expected list"))
+		return nil, conversionFailure(errors.New(expectedListMessage))
 	}
 	out := make([]T, 0, len(items))
 	for _, item := range items {
@@ -72,7 +78,7 @@ func Map[T any](decode gosr.ValueDecoderFunc[T], v gosr.Value) (maptypes.StringM
 		}
 	}
 	if v.Kind() != gosr.ObjectKind {
-		return nil, conversionFailure(fmt.Errorf("expected object"))
+		return nil, conversionFailure(errors.New(expectedObjectMessage))
 	}
 	out := make(maptypes.StringMap[T])
 	for key, item := range v.Fields() {
@@ -87,7 +93,12 @@ func Map[T any](decode gosr.ValueDecoderFunc[T], v gosr.Value) (maptypes.StringM
 
 // ReadMap decodes the exact property when present. Otherwise it assembles
 // descendant scalar properties, retaining their relative keys as map keys.
-func ReadMap[T any](r gosr.PropertyResolver, key string, options ReadOptions, decode gosr.ValueDecoderFunc[T]) (maptypes.StringMap[T], error) {
+func ReadMap[T any](
+	r gosr.PropertyResolver,
+	key string,
+	options ReadOptions,
+	decode gosr.ValueDecoderFunc[T],
+) (maptypes.StringMap[T], error) {
 	if r == nil {
 		return nil, &gosr.Error{
 			Code: gosr.InvalidState,
@@ -102,10 +113,10 @@ func ReadMap[T any](r gosr.PropertyResolver, key string, options ReadOptions, de
 	}
 	out := make(maptypes.StringMap[T])
 	for _, k := range r.Keys() {
-		if !strings.HasPrefix(k, key+propertypath.Separator) {
+		member, descendant := strings.CutPrefix(k, key+propertypath.Separator)
+		if !descendant {
 			continue
 		}
-		member := strings.TrimPrefix(k, key+propertypath.Separator)
 		value, err := Read(r, k, ReadOptions{}, decode)
 		if err != nil {
 			return nil, err

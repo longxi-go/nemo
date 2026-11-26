@@ -25,6 +25,10 @@ import (
 	"github.com/longxi-go/nemo/pkg/maptypes"
 )
 
+const (
+	invalidOrAmbiguousDocumentValueMessage = "invalid or ambiguous document value"
+)
+
 const maxNestingDepth = 64
 
 type flattenFunc = func(string, any, int) error
@@ -84,7 +88,7 @@ func Flatten(input any) (maptypes.ValueMap, error) {
 func invalid() error {
 	return &gosr.Error{
 		Code:    gosr.InvalidValue,
-		Message: "invalid or ambiguous document value",
+		Message: invalidOrAmbiguousDocumentValueMessage,
 	}
 }
 

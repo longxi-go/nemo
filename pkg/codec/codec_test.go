@@ -59,11 +59,15 @@ func TestTypedCollectionsAndNull(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if v["app.port"].Kind() != gosr.NumberKind || v["app.nil"].Kind() != gosr.NullKind || v["app.empty"].Kind() != gosr.ObjectKind {
+			if v["app.port"].Kind() != gosr.NumberKind ||
+				v["app.nil"].Kind() != gosr.NullKind ||
+				v["app.empty"].Kind() != gosr.ObjectKind {
 				t.Fatal(v)
 			}
 			items := v["app.items"].Items()
-			if len(items) != 3 || items[0].Kind() != gosr.BoolKind || items[2].Fields()["x"].Kind() != gosr.NumberKind {
+			if len(items) != 3 ||
+				items[0].Kind() != gosr.BoolKind ||
+				items[2].Fields()["x"].Kind() != gosr.NumberKind {
 				t.Fatal(items)
 			}
 		})

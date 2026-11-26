@@ -88,7 +88,9 @@ func TestMissingDefaultsNullAndProvenance(t *testing.T) {
 	}
 	_, err = binding.Read(r, "bad", binding.ReadOptions{}, binding.Signed[int])
 	var failure *gosr.Error
-	if !errors.As(err, &failure) || failure.Origin.Source != "test" || strings.Contains(err.Error(), "secret") {
+	if !errors.As(err, &failure) ||
+		failure.Origin.Source != "test" ||
+		strings.Contains(err.Error(), "secret") {
 		t.Fatal(err)
 	}
 	mp, err := binding.ReadMap(r, "map", binding.ReadOptions{

@@ -15,8 +15,12 @@
 package command
 
 import (
-	"fmt"
+	"errors"
 	"strings"
+)
+
+const (
+	emptyRootMessage = "empty root"
 )
 
 const rootListSeparator = ","
@@ -28,9 +32,9 @@ func (r *rootFlags) String() string {
 }
 
 func (r *rootFlags) Set(value string) error {
-	for _, root := range strings.Split(value, rootListSeparator) {
+	for root := range strings.SplitSeq(value, rootListSeparator) {
 		if strings.TrimSpace(root) == "" {
-			return fmt.Errorf("empty root")
+			return errors.New(emptyRootMessage)
 		}
 		*r = append(*r, strings.TrimSpace(root))
 	}

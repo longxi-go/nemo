@@ -246,7 +246,9 @@ func TestResolutionDiagnosticPath(t *testing.T) {
 		},
 	})
 	var detail *gosr.Error
-	if !errors.As(err, &detail) || strings.Join(detail.Path, " -> ") != "a -> b -> a" || detail.Origin.Source != "top" {
+	if !errors.As(err, &detail) ||
+		strings.Join(detail.Path, " -> ") != "a -> b -> a" ||
+		detail.Origin.Source != "top" {
 		t.Fatal("outer diagnostic lost path", err)
 	}
 }

@@ -15,19 +15,37 @@
 package compiler
 
 import (
+	"errors"
 	"fmt"
 	"go/types"
+)
+
+const (
+	bindingBoolean                            = "Boolean"
+	bindingDuration                           = "Duration"
+	bindingFloat                              = "Float"
+	bindingListDecoder                        = "ListDecoder"
+	bindingMapDecoder                         = "MapDecoder"
+	bindingPointerDecoder                     = "PointerDecoder"
+	bindingSigned                             = "Signed"
+	bindingString                             = "String"
+	bindingText                               = "Text"
+	bindingUnsigned                           = "Unsigned"
+	collectionsAdmitScalarElementsOnlyMessage = "collections admit scalar elements only"
+	nestedCollectionsUnsupportedMessage       = "nested collections unsupported"
+	unsupportedScalarFormat                   = "unsupported scalar %s"
+	unsupportedTypeFormat                     = "unsupported type %s"
 )
 
 func (m *modeler) decoder(t types.Type, scalarOnly bool) (string, error) {
 	declared := t
 	t = types.Unalias(t)
 	if isDurationType(t) {
-		return m.names.Binding + goSelector + "Duration", nil
+		return m.names.Binding + goSelector + bindingDuration, nil
 	}
 	if named, ok := t.(*types.Named); ok {
 		if hasText(named) {
-			function := m.names.Binding + goSelector + "Text"
+			function := m.names.Binding + goSelector + bindingText
 			return function + goTypeArgumentsOpen + m.typeName(declared) + goTypeArgumentsClose, nil
 		}
 	}
@@ -36,17 +54,17 @@ func (m *modeler) decoder(t types.Type, scalarOnly bool) (string, error) {
 		fn := ""
 		switch {
 		case typ.Info()&types.IsString != 0:
-			fn = "String"
+			fn = bindingString
 		case typ.Info()&types.IsBoolean != 0:
-			fn = "Boolean"
+			fn = bindingBoolean
 		case typ.Info()&types.IsUnsigned != 0:
-			fn = "Unsigned"
+			fn = bindingUnsigned
 		case typ.Info()&types.IsInteger != 0:
-			fn = "Signed"
+			fn = bindingSigned
 		case typ.Info()&types.IsFloat != 0:
-			fn = "Float"
+			fn = bindingFloat
 		default:
-			return "", fmt.Errorf("unsupported scalar %s", types.TypeString(t, nil))
+			return "", fmt.Errorf(unsupportedScalarFormat, types.TypeString(t, nil))
 		}
 		// Imports belong to emitted type expressions. Container types adapted by
 		// combinators do not appear in the output and must not register imports.
@@ -54,35 +72,35 @@ func (m *modeler) decoder(t types.Type, scalarOnly bool) (string, error) {
 		return function + goTypeArgumentsOpen + m.typeName(declared) + goTypeArgumentsClose, nil
 	case *types.Pointer:
 		if scalarOnly {
-			return "", fmt.Errorf("collections admit scalar elements only")
+			return "", errors.New(collectionsAdmitScalarElementsOnlyMessage)
 		}
 		decode, err := m.decoder(typ.Elem(), true)
 		if err != nil {
 			return "", err
 		}
-		return m.names.Binding + goSelector + "PointerDecoder" + goCallOpen + decode + goCallClose, nil
+		return m.names.Binding + goSelector + bindingPointerDecoder + goCallOpen + decode + goCallClose, nil
 	case *types.Slice:
 		if scalarOnly {
-			return "", fmt.Errorf("nested collections unsupported")
+			return "", errors.New(nestedCollectionsUnsupportedMessage)
 		}
 		decode, err := m.decoder(typ.Elem(), true)
 		if err != nil {
 			return "", err
 		}
-		return m.names.Binding + goSelector + "ListDecoder" + goCallOpen + decode + goCallClose, nil
+		return m.names.Binding + goSelector + bindingListDecoder + goCallOpen + decode + goCallClose, nil
 	case *types.Map:
 		if scalarOnly {
-			return "", fmt.Errorf("nested collections unsupported")
+			return "", errors.New(nestedCollectionsUnsupportedMessage)
 		}
 		if !types.Identical(typ.Key(), types.Typ[types.String]) {
-			return "", fmt.Errorf("maps require string keys")
+			return "", errors.New(mapsRequireStringKeysMessage)
 		}
 		decode, err := m.decoder(typ.Elem(), true)
 		if err != nil {
 			return "", err
 		}
-		return m.names.Binding + goSelector + "MapDecoder" + goCallOpen + decode + goCallClose, nil
+		return m.names.Binding + goSelector + bindingMapDecoder + goCallOpen + decode + goCallClose, nil
 	default:
-		return "", fmt.Errorf("unsupported type %s", types.TypeString(t, nil))
+		return "", fmt.Errorf(unsupportedTypeFormat, types.TypeString(t, nil))
 	}
 }

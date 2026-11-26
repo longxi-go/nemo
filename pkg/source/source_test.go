@@ -41,7 +41,11 @@ func TestImmutableMap(t *testing.T) {
 	}
 	values["z"] = gosr.String("changed")
 	p, ok, err := s.Lookup("z")
-	if err != nil || !ok || !p.Value.Equal(gosr.String("original")) || p.Origin.Source != "test" || p.Origin.Key != "z" {
+	if err != nil ||
+		!ok ||
+		!p.Value.Equal(gosr.String("original")) ||
+		p.Origin.Source != "test" ||
+		p.Origin.Key != "z" {
 		t.Fatal(p, ok, err)
 	}
 	keys := s.Keys()
@@ -86,7 +90,10 @@ func TestPropertiesAndContext(t *testing.T) {
 	}
 	delete(values, "a")
 	p, ok, err := s.Lookup("a")
-	if err != nil || !ok || p.Origin.Resource != "custom" || p.Origin.Line != 3 {
+	if err != nil ||
+		!ok ||
+		p.Origin.Resource != "custom" ||
+		p.Origin.Line != 3 {
 		t.Fatal(p, ok, err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())

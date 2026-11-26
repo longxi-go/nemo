@@ -15,11 +15,22 @@
 package compiler
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/longxi-go/nemo/pkg/maptypes"
+)
+
+const (
+	duplicateTagFormat           = "duplicate tag %s"
+	invalidQuotedTagMessage      = "invalid quoted tag"
+	malformedStructTagMessage    = "malformed struct tag"
+	malformedTagNameMessage      = "malformed tag name"
+	tagValueMustBeQuotedMessage  = "tag value must be quoted"
+	tagsRequireSeparationMessage = "tags require separation"
+	unterminatedTagValueMessage  = "unterminated tag value"
 )
 
 // validateTags rejects malformed or duplicate keys rather than silently treating
@@ -33,19 +44,19 @@ func validateTags(raw string) error {
 		}
 		colon := strings.Index(raw, tagValueSeparator)
 		if colon < 1 {
-			return fmt.Errorf("malformed struct tag")
+			return errors.New(malformedStructTagMessage)
 		}
 		name := raw[:colon]
 		if strings.ContainsAny(name, invalidTagNameCharacters) {
-			return fmt.Errorf("malformed tag name")
+			return errors.New(malformedTagNameMessage)
 		}
 		if seen[name] {
-			return fmt.Errorf("duplicate tag %s", name)
+			return fmt.Errorf(duplicateTagFormat, name)
 		}
 		seen[name] = true
 		rest := raw[colon+len(tagValueSeparator):]
 		if len(rest) == 0 || rest[0] != tagQuote {
-			return fmt.Errorf("tag value must be quoted")
+			return errors.New(tagValueMustBeQuotedMessage)
 		}
 		end := 1
 		for end < len(rest) {
@@ -59,14 +70,14 @@ func validateTags(raw string) error {
 			end++
 		}
 		if end >= len(rest) {
-			return fmt.Errorf("unterminated tag value")
+			return errors.New(unterminatedTagValueMessage)
 		}
 		if _, err := strconv.Unquote(rest[:end+1]); err != nil {
-			return fmt.Errorf("invalid quoted tag")
+			return errors.New(invalidQuotedTagMessage)
 		}
 		raw = rest[end+1:]
 		if raw != "" && raw[0] != tagSeparator[0] {
-			return fmt.Errorf("tags require separation")
+			return errors.New(tagsRequireSeparationMessage)
 		}
 	}
 	return nil

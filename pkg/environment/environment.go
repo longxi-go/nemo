@@ -21,10 +21,8 @@ import (
 
 	gosr "github.com/longxi-go/gosr/pkg/environment"
 	"github.com/longxi-go/gosr/pkg/event"
-	"github.com/longxi-go/nemo/internal/admission"
 	"github.com/longxi-go/nemo/internal/resolution"
 	"github.com/longxi-go/nemo/pkg/limits"
-	"github.com/longxi-go/nemo/pkg/maptypes"
 	"github.com/longxi-go/nemo/pkg/source"
 )
 
@@ -137,82 +135,9 @@ func (e *Environment) prepare(ctx context.Context, revision uint64) (*snapshot, 
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	properties := maptypes.PropertyMap{}
-	budget := admission.New(ctx, e.limits, false)
-	seen := maptypes.StringBoolMap{}
-	for _, provider := range e.providers {
-		loaded, err := provider.Fetch(ctx)
-		if err != nil {
-			return nil, &gosr.Error{
-				Code:  gosr.SourceFailed,
-				Cause: err,
-			}
-		}
-		if loaded == nil {
-			return nil, &gosr.Error{
-				Code: gosr.SourceFailed,
-			}
-		}
-		name := loaded.Name()
-		if err := gosr.ValidateKey(name); err != nil {
-			return nil, &gosr.Error{
-				Code:  gosr.SourceFailed,
-				Cause: err,
-			}
-		}
-		if seen[name] {
-			return nil, &gosr.Error{
-				Code: gosr.SourceFailed,
-				Origin: gosr.Origin{
-					Source: name,
-				},
-				Message: "duplicate source identity",
-			}
-		}
-		seen[name] = true
-		keys := loaded.Keys()
-		if err := limits.Check(limits.Properties, int64(len(keys)), int64(e.limits.MaxProperties)); err != nil {
-			return nil, err
-		}
-		for _, key := range keys {
-			if err := ctx.Err(); err != nil {
-				return nil, err
-			}
-			if err := gosr.ValidateKey(key); err != nil {
-				return nil, err
-			}
-			if _, present := properties[key]; present {
-				continue
-			}
-			property, found, err := loaded.Lookup(key)
-			if err != nil {
-				return nil, &gosr.Error{
-					Code:  gosr.SourceFailed,
-					Key:   key,
-					Cause: err,
-				}
-			}
-			if !found {
-				return nil, &gosr.Error{
-					Code:    gosr.SourceFailed,
-					Key:     key,
-					Message: "enumerated property missing",
-				}
-			}
-			if property.Origin.Source == "" {
-				property.Origin.Source = name
-			}
-			if property.Origin.Key == "" {
-				property.Origin.Key = key
-			}
-			if err := limits.Check(limits.Properties, int64(len(properties))+1, int64(e.limits.MaxProperties)); err != nil {
-				return nil, err
-			}
-			if err := budget.Property(key, property.Value); err != nil {
-				return nil, err
-			}
-			properties[key] = property
-		}
+	properties, err := e.fetchProperties(ctx)
+	if err != nil {
+		return nil, err
 	}
 	resolved, err := resolution.NewWithPolicy(ctx, properties, e.limits)
 	if err != nil {

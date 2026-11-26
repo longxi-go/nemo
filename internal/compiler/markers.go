@@ -27,6 +27,12 @@ import (
 	"sigs.k8s.io/controller-tools/pkg/markers"
 )
 
+const (
+	configMustBeAStructFormat             = "%s: config %s must be a struct"
+	genericOrAliasConfigUnsupportedFormat = "%s: generic or alias config %s unsupported"
+	invalidConfigPrefixFormat             = "%s: invalid config prefix"
+)
+
 type scannedSource struct {
 	declarations []declaration
 	names        []string
@@ -77,14 +83,14 @@ func scanDeclarations(files []string, registry *annotation.Registry) (scannedSou
 					prefix := value.Value
 					if text := prefix.(string); text != "" {
 						if err := gosr.ValidateKey(text); err != nil {
-							return source, fmt.Errorf("%s: invalid config prefix", path)
+							return source, fmt.Errorf(invalidConfigPrefixFormat, path)
 						}
 					}
 					if ts.TypeParams != nil || ts.Assign.IsValid() {
-						return source, fmt.Errorf("%s: generic or alias config %s unsupported", path, ts.Name)
+						return source, fmt.Errorf(genericOrAliasConfigUnsupportedFormat, path, ts.Name)
 					}
 					if _, ok := ts.Type.(*ast.StructType); !ok {
-						return source, fmt.Errorf("%s: config %s must be a struct", path, ts.Name)
+						return source, fmt.Errorf(configMustBeAStructFormat, path, ts.Name)
 					}
 					source.declarations = append(source.declarations, declaration{
 						name:   ts.Name.Name,

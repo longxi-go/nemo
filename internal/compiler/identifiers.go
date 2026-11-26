@@ -20,6 +20,25 @@ import (
 	"github.com/longxi-go/nemo/pkg/maptypes"
 )
 
+const (
+	preferredBinding  = "binding"
+	preferredCurrent  = "current"
+	preferredDepth    = "depth"
+	preferredErr      = "err"
+	preferredIndex    = "index"
+	preferredInputs   = "inputs"
+	preferredItem     = "item"
+	preferredKeys     = "keys"
+	preferredNemoSort = "nemoSort"
+	preferredNext     = "next"
+	preferredPrefix   = "prefix"
+	preferredPresent  = "present"
+	preferredResolver = "resolver"
+	preferredScoped   = "scoped"
+	preferredTarget   = "target"
+	preferredValue    = "value"
+)
+
 // identifiers reserves the package namespace before allocating imports, helpers
 // and function locals. The same policy protects bootstrap and final overlays.
 type identifiers struct {
@@ -67,22 +86,22 @@ type generatedNames struct {
 
 func newGeneratedNames(set *identifiers) generatedNames {
 	return generatedNames{
-		Binding:     set.take("binding"),
+		Binding:     set.take(preferredBinding),
 		Environment: set.take(environmentImportAlias),
-		Target:      set.take("target"),
-		Resolver:    set.take("resolver"),
-		Prefix:      set.take("prefix"),
-		Next:        set.take("next"),
-		Err:         set.take("err"),
-		Value:       set.take("value"),
-		Scoped:      set.take("scoped"),
-		Current:     set.take("current"),
-		Inputs:      set.take("inputs"),
-		Index:       set.take("index"),
-		Item:        set.take("item"),
-		Keys:        set.take("keys"),
-		Sort:        set.take("nemoSort"),
-		Depth:       set.take("depth"),
-		Present:     set.take("present"),
+		Target:      set.take(preferredTarget),
+		Resolver:    set.take(preferredResolver),
+		Prefix:      set.take(preferredPrefix),
+		Next:        set.take(preferredNext),
+		Err:         set.take(preferredErr),
+		Value:       set.take(preferredValue),
+		Scoped:      set.take(preferredScoped),
+		Current:     set.take(preferredCurrent),
+		Inputs:      set.take(preferredInputs),
+		Index:       set.take(preferredIndex),
+		Item:        set.take(preferredItem),
+		Keys:        set.take(preferredKeys),
+		Sort:        set.take(preferredNemoSort),
+		Depth:       set.take(preferredDepth),
+		Present:     set.take(preferredPresent),
 	}
 }

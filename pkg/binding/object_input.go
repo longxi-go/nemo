@@ -25,6 +25,11 @@ import (
 	"github.com/longxi-go/nemo/pkg/maptypes"
 )
 
+const (
+	expectedObjectCollectionMessage = "expected object collection"
+	expectedObjectElementMessage    = "expected object element"
+)
+
 // ObjectInput isolates one collection element for a statically generated binder.
 // Resolver exposes only this object's projected addresses; Resolve retains the
 // enclosing environment's absolute-reference semantics. Prefix is a binding-only
@@ -52,13 +57,16 @@ func (input ObjectInput) Wrap(err error) error {
 	if !errors.As(err, &original) {
 		return err
 	}
-	if original.Key != input.Prefix && !strings.HasPrefix(original.Key, input.Prefix+propertypath.Separator) {
+	relative, descendant := strings.CutPrefix(original.Key, input.Prefix+propertypath.Separator)
+	if original.Key == input.Prefix {
+		relative = ""
+	} else if !descendant {
 		return err
 	}
 	copy := *original
 	copy.Cause = err
 	copy.Path = slices.Clone(input.path)
-	if relative := strings.TrimPrefix(strings.TrimPrefix(original.Key, input.Prefix), propertypath.Separator); relative != "" {
+	if relative != "" {
 		copy.Path = append(copy.Path, strings.Split(relative, propertypath.Separator)...)
 	}
 	copy.Path = append(copy.Path, original.Path...)
@@ -69,36 +77,39 @@ func (input ObjectInput) Wrap(err error) error {
 	return &copy
 }
 
-func newObjectInput(
-	base gosr.PropertyResolver,
-	prefix string,
-	value gosr.Value,
-	key string,
-	origin gosr.Origin,
-	path string,
-) (ObjectInput, error) {
+// objectElement keeps the projected address and original provenance together.
+// They differ for collection elements whose fields share one source property.
+type objectElement struct {
+	prefix    string
+	value     gosr.Value
+	sourceKey string
+	origin    gosr.Origin
+	path      string
+}
+
+func newObjectInput(base gosr.PropertyResolver, element objectElement) (ObjectInput, error) {
 	input := ObjectInput{
-		Prefix:    prefix,
-		sourceKey: key,
-		origin:    origin,
-		path:      []string{path},
+		Prefix:    element.prefix,
+		sourceKey: element.sourceKey,
+		origin:    element.origin,
+		path:      []string{element.path},
 	}
-	if value.Kind() != gosr.ObjectKind {
+	if element.value.Kind() != gosr.ObjectKind {
 		return input, &gosr.Error{
 			Code:    gosr.ConversionFailed,
-			Key:     key,
-			Origin:  origin,
-			Path:    []string{path},
-			Message: "expected object element",
+			Key:     element.sourceKey,
+			Origin:  element.origin,
+			Path:    []string{element.path},
+			Message: expectedObjectElementMessage,
 		}
 	}
 	properties := maptypes.PropertyMap{
-		prefix: {
-			Value:  value,
-			Origin: origin,
+		element.prefix: {
+			Value:  element.value,
+			Origin: element.origin,
 		},
 	}
-	if err := projectObject(prefix, value, origin, properties); err != nil {
+	if err := projectObject(element.prefix, element.value, element.origin, properties); err != nil {
 		return input, err
 	}
 	input.Resolver = elementResolver{
@@ -157,6 +168,6 @@ func objectFailure(key string, origin gosr.Origin) error {
 		Code:    gosr.ConversionFailed,
 		Key:     key,
 		Origin:  origin,
-		Message: "expected object collection",
+		Message: expectedObjectCollectionMessage,
 	}
 }

@@ -16,12 +16,19 @@ package compiler
 
 import (
 	"encoding/csv"
-	"fmt"
+	"errors"
 	"go/types"
 	"math"
 	"strconv"
 	"strings"
 	"time"
+)
+
+const (
+	defaultsRequireScalarOrScalarListFieldsMessage = "defaults require scalar or scalar-list fields"
+	invalidFiniteFloatDefaultMessage               = "invalid finite float default"
+	listDefaultRequiresOneCSVRecordMessage         = "list default requires one CSV record"
+	targetIntegerWidthIsUnavailableMessage         = "target integer width is unavailable"
 )
 
 func validateDefault(t types.Type, raw string, sizes types.Sizes) error {
@@ -44,7 +51,7 @@ func validateDefault(t types.Type, raw string, sizes types.Sizes) error {
 		}
 		records, err := csv.NewReader(strings.NewReader(raw)).ReadAll()
 		if err != nil || len(records) != 1 {
-			return fmt.Errorf("list default requires one CSV record")
+			return errors.New(listDefaultRequiresOneCSVRecordMessage)
 		}
 		for _, item := range records[0] {
 			if err := validateDefault(typ.Elem(), item, sizes); err != nil {
@@ -63,7 +70,7 @@ func validateDefault(t types.Type, raw string, sizes types.Sizes) error {
 			bits = 32
 		case types.Int, types.Uint, types.Uintptr:
 			if sizes == nil {
-				return fmt.Errorf("target integer width is unavailable")
+				return errors.New(targetIntegerWidthIsUnavailableMessage)
 			}
 			bits = int(sizes.Sizeof(typ) * 8)
 		}
@@ -82,10 +89,10 @@ func validateDefault(t types.Type, raw string, sizes types.Sizes) error {
 		case typ.Info()&types.IsFloat != 0:
 			value, err := strconv.ParseFloat(raw, bits)
 			if err != nil || math.IsNaN(value) || math.IsInf(value, 0) {
-				return fmt.Errorf("invalid finite float default")
+				return errors.New(invalidFiniteFloatDefaultMessage)
 			}
 			return nil
 		}
 	}
-	return fmt.Errorf("defaults require scalar or scalar-list fields")
+	return errors.New(defaultsRequireScalarOrScalarListFieldsMessage)
 }

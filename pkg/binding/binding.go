@@ -21,6 +21,10 @@ import (
 	"github.com/longxi-go/nemo/internal/propertypath"
 )
 
+const (
+	expectedExactScalarOrCollectionPropertyMessage = "expected exact scalar or collection property"
+)
+
 // Bind requires *T to implement Bindable. It captures one snapshot when the
 // resolver implements gosr.SnapshotProvider.
 func Bind[T any, P BindablePointer[T]](resolver gosr.PropertyResolver, prefix string) (T, error) {
@@ -107,7 +111,7 @@ func Read[T any](r gosr.PropertyResolver, key string, options ReadOptions, decod
 				Code:    gosr.ConversionFailed,
 				Key:     key,
 				Origin:  property.Origin,
-				Message: "expected exact scalar or collection property",
+				Message: expectedExactScalarOrCollectionPropertyMessage,
 			}
 		}
 	}

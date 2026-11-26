@@ -15,6 +15,7 @@
 package compiler
 
 import (
+	"errors"
 	"fmt"
 	"go/types"
 	"strings"
@@ -24,6 +25,18 @@ import (
 	"github.com/longxi-go/nemo/internal/propertypath"
 	"github.com/longxi-go/nemo/pkg/maptypes"
 	"golang.org/x/tools/go/packages"
+)
+
+const (
+	anonymousObjectHelper                                        = "nemoBindObject"
+	fieldDiagnosticSeparator                                     = ": "
+	fieldLabel                                                   = "field "
+	namedObjectHelperPrefix                                      = "nemoBind"
+	conflictingPropertyPathsMessage                              = "conflicting property paths"
+	expectedStructMessage                                        = "expected struct"
+	externalNestedStructNeedsBindPropertiesOrUnmarshalTextFormat = "external nested struct %s needs BindProperties or UnmarshalText"
+	genericNestedStructsUnsupportedMessage                       = "generic nested structs unsupported"
+	objectTypeAliasFormat                                        = "nemoType%d"
 )
 
 type modeler struct {
@@ -42,32 +55,32 @@ func (m *modeler) typeName(t types.Type) string {
 }
 
 func (m *modeler) importAlias(_ string, _ string, index int) string {
-	return m.identifiers.take(fmt.Sprintf("nemoType%d", index))
+	return m.identifiers.take(fmt.Sprintf(objectTypeAliasFormat, index))
 }
 
 func (m *modeler) diagnostic(field *types.Var, message string) error {
-	return diagnostic.Wrap(stageAnalyze, m.pkg.Fset.Position(field.Pos()), "field "+field.Name()+": "+message, nil)
+	return diagnostic.Wrap(stageAnalyze, m.pkg.Fset.Position(field.Pos()), fieldLabel+field.Name()+fieldDiagnosticSeparator+message, nil)
 }
 
 func (m *modeler) objectHelper(declared types.Type) (string, error) {
 	typ := types.Unalias(declared)
 	named, isNamed := typ.(*types.Named)
 	if isNamed && named.TypeArgs().Len() > 0 {
-		return "", fmt.Errorf("generic nested structs unsupported")
+		return "", errors.New(genericNestedStructsUnsupportedMessage)
 	}
 	if helper, ok := m.helpers[typ]; ok {
 		return helper, nil
 	}
 	if isNamed && named.Obj().Pkg() != m.pkg.Types {
-		return "", fmt.Errorf("external nested struct %s needs BindProperties or UnmarshalText", named)
+		return "", fmt.Errorf(externalNestedStructNeedsBindPropertiesOrUnmarshalTextFormat, named)
 	}
 	st, ok := typ.Underlying().(*types.Struct)
 	if !ok {
-		return "", fmt.Errorf("expected struct")
+		return "", errors.New(expectedStructMessage)
 	}
-	preferred := "nemoBindObject"
+	preferred := anonymousObjectHelper
 	if isNamed {
-		preferred = "nemoBind" + named.Obj().Name()
+		preferred = namedObjectHelperPrefix + named.Obj().Name()
 	}
 	helper := m.identifiers.take(preferred)
 	m.helpers[typ] = helper
@@ -89,7 +102,7 @@ func (m *modeler) objectHelper(declared types.Type) (string, error) {
 			if key == value.Key ||
 				strings.HasPrefix(key, value.Key+propertypath.Separator) ||
 				strings.HasPrefix(value.Key, key+propertypath.Separator) {
-				return "", m.diagnostic(field, "conflicting property paths")
+				return "", m.diagnostic(field, conflictingPropertyPathsMessage)
 			}
 		}
 		keys[value.Key] = true

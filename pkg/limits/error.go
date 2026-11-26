@@ -20,6 +20,10 @@ import (
 	gosr "github.com/longxi-go/gosr/pkg/environment"
 )
 
+const (
+	configurationLimitFormat = "configuration limit: %s (%d > %d)"
+)
+
 // Resource identifies a budget without including configuration values.
 type Resource string
 
@@ -41,7 +45,7 @@ type ExceededError struct {
 }
 
 func (e *ExceededError) Error() string {
-	return fmt.Sprintf("configuration limit: %s (%d > %d)", e.Resource, e.Observed, e.Limit)
+	return fmt.Sprintf(configurationLimitFormat, e.Resource, e.Observed, e.Limit)
 }
 
 func (e *ExceededError) Unwrap() error {

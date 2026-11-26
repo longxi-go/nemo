@@ -22,6 +22,10 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
+const (
+	phaseTypeValidation = "type validation"
+)
+
 func loadConfig(ctx context.Context, o Options, overlay maptypes.StringBytesMap) *packages.Config {
 	config := packageload.Config(ctx, o.Dir, overlay)
 	config.Mode = packages.NeedModule | packages.NeedName | packages.NeedFiles |
@@ -39,7 +43,7 @@ func roots(o Options) []string {
 }
 
 func packageErrors(pkgs []*packages.Package) error {
-	return packageload.Errors("type validation", pkgs)
+	return packageload.Errors(phaseTypeValidation, pkgs)
 }
 
 func validate(ctx context.Context, o Options, overlay maptypes.StringBytesMap) error {

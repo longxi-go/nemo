@@ -15,8 +15,12 @@
 package compiler
 
 import (
-	"fmt"
+	"errors"
 	"go/types"
+)
+
+const (
+	nestedStructDefaultsBelongOnScalarFieldsMessage = "nested struct defaults belong on scalar fields"
 )
 
 func (m *modeler) objectField(declared types.Type, value *fieldModel) (bool, error) {
@@ -33,7 +37,7 @@ func (m *modeler) objectField(declared types.Type, value *fieldModel) (bool, err
 			externalBindable(nested, m.pkg.Types, m.bindable) &&
 			!hasText(nested) {
 			if value.HasDefault {
-				return true, fmt.Errorf("nested struct defaults belong on scalar fields")
+				return true, errors.New(nestedStructDefaultsBelongOnScalarFieldsMessage)
 			}
 			value.Mode = fieldModeExternal
 			if !value.Pointer {
@@ -47,7 +51,7 @@ func (m *modeler) objectField(declared types.Type, value *fieldModel) (bool, err
 	}
 	if _, isStruct := inner.Underlying().(*types.Struct); isStruct && !hasTextType(inner) {
 		if value.HasDefault {
-			return true, fmt.Errorf("nested struct defaults belong on scalar fields")
+			return true, errors.New(nestedStructDefaultsBelongOnScalarFieldsMessage)
 		}
 		helper, err := m.objectHelper(renderType)
 		if err != nil {

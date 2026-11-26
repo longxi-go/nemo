@@ -16,6 +16,10 @@ package binding
 
 import gosr "github.com/longxi-go/gosr/pkg/environment"
 
+const (
+	objectBindingDepthExceededMessage = "object binding depth exceeded"
+)
+
 // MaxObjectDepth bounds one generated private helper tree. The root is depth 0;
 // each instantiated child object adds one, independently of pointer/container
 // wrappers. Opaque external binders own their internal limits; a generated public
@@ -28,7 +32,7 @@ func CheckObjectDepth(depth int) error {
 	if depth < 0 || depth > MaxObjectDepth {
 		return &gosr.Error{
 			Code:    gosr.ConversionFailed,
-			Message: "object binding depth exceeded",
+			Message: objectBindingDepthExceededMessage,
 		}
 	}
 	return nil

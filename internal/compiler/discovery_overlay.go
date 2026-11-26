@@ -24,6 +24,10 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
+const (
+	discoveryOverlaySource = "package nemoDiscovery\n"
+)
+
 // discoveryOverlay prevents Go's own directory discovery from opening a pipe or
 // device at the generated filename. It does not decide which packages match:
 // go/packages remains authoritative, and selected packages are checked against
@@ -54,7 +58,7 @@ func maskDiscoveryTree(ctx context.Context, root discoveryRoot, dir string, over
 	}
 	path := filepath.Join(dir, generatedFileName)
 	if info, err := os.Lstat(path); err == nil && !info.Mode().IsRegular() {
-		overlay[path] = []byte("package nemoDiscovery\n")
+		overlay[path] = []byte(discoveryOverlaySource)
 	}
 	if !root.recursive {
 		return nil

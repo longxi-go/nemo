@@ -64,7 +64,9 @@ func TestDiscoveryNativeFileIdentity(t *testing.T) {
 	if err != nil || !found {
 		t.Fatalf("lookup: found=%v, error=%v", found, err)
 	}
-	if snapshot.Name() != expectedName || property.Origin.Source != expectedName || property.Origin.Resource != resource {
+	if snapshot.Name() != expectedName ||
+		property.Origin.Source != expectedName ||
+		property.Origin.Resource != resource {
 		t.Fatalf("native identity or resource rewritten: name=%q, origin=%#v", snapshot.Name(), property.Origin)
 	}
 	if text, scalar := property.Value.Scalar(); !scalar || text != "8080" {

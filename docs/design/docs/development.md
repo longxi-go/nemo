@@ -60,9 +60,12 @@ go work init ./golayout ./gosr ./gosr/tools ./nemo
 Use `go work use` to extend an existing workspace. Include `gosr/tools` separately
 because it has its own `go.mod`; include other consumers only when needed.
 Keep `go.work` and `go.work.sum` local, and keep production modules free of
-sibling-directory replacements. A `go build` within that workspace selects local
-code. Repository Make targets enforce `GOWORK=off` and reject process or persistent
-`GOFLAGS` overrides so their checks use the declared public dependencies.
+sibling-directory replacements.
+
+From the Nemo checkout, `make check WORKSPACE=../go.work` verifies the explicitly
+selected workspace and applies its module selections to temporary test consumers.
+Without `WORKSPACE`, checks use the published dependency graph.
+Checks reject process or persistent `GOFLAGS` overrides.
 
 ## Documentation
 

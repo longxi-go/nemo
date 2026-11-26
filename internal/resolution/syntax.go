@@ -48,6 +48,9 @@ func (p parser) validateSyntax(text string, depth int) error {
 		if err := gosr.ValidateKey(text[i+len(gosr.PlaceholderPrefix) : keyEnd]); err != nil {
 			return err
 		}
+		if err := p.validateSyntax(text[i+len(gosr.PlaceholderPrefix):keyEnd], depth+1); err != nil {
+			return err
+		}
 		if colon >= 0 {
 			if err := p.validateSyntax(text[colon+len(gosr.PlaceholderDefaultSeparator):end], depth+1); err != nil {
 				return err

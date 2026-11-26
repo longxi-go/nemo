@@ -190,6 +190,53 @@ default:
 }
 ```
 
+## Function Design and Control Flow
+
+- Keep functions focused on one responsibility. Separate phase orchestration
+  from discovery, validation, selection, transformation and persistence where
+  those phases exist; keep execution order and failure handling visible.
+- Review long functions, deep nesting, repeated predicates and oversized
+  signatures together. Extract cohesive operations into focused files in the
+  same package. Function length is a review signal, not a fixed line limit;
+  keep a cohesive algorithm intact when splitting would hide its invariants.
+- Framework-owned signatures with more than five value parameters MUST be
+  refactored around cohesive named request, options, query or operation models.
+  Count individual value parameters, excluding receivers and type parameters.
+  Keep `context.Context` explicit and first rather than storing it in the model.
+- Group inputs by responsibility, ownership and lifetime. Keep required
+  dependencies explicit; avoid unrelated fields, generic maps, `any` bags or a
+  large mutable object created only to reduce the parameter count. Remove
+  redundant inputs derivable from the same validated model, without introducing
+  hidden globals.
+- Contract-defined interface, callback and protocol signatures, annotation
+  factory signatures and deliberate conformance fixtures are valid exceptions
+  to parameter grouping. Preserve their required shape; record the contract
+  reason when reviewing an exception instead of changing an API to meet a count.
+- Replace opaque positional boolean switches with clearly named fields or
+  typed policies when they represent distinct decisions. Do not add speculative
+  options or functional-option layers for a small fixed input model.
+- Split complex `&&` / `||` expressions across logical groups and lines. Prefer
+  named local conditions or cohesive predicates when they expose a domain rule;
+  avoid trivial wrappers around every comparison.
+- Use guard clauses to reduce nesting when they clarify failure paths. Preserve
+  grouping, short-circuit evaluation, nil safety, side effects and diagnostic
+  precedence when extracting or reordering conditions.
+- Prefer suitable standard-library operations such as `slices.Contains`,
+  `strings.CutPrefix` and `strings.SplitSeq` when their semantics match and the
+  module's Go version supports them. Retain prefix-only checks and other guards
+  that serve a different purpose; do not apply suggestions mechanically.
+- Use composition and phase orchestration for actual responsibility boundaries.
+  Introduce an interface, strategy or adapter only for a concrete behavioral
+  variation or extension seam; extracting a helper does not require a new layer.
+- Maintainability audits MUST cover analogous owned code, tests and generator
+  templates, rather than stopping at the files named as examples. Preserve
+  intentional fixture shapes and independent contract assertions.
+- Verify refactoring against observable behavior: public contracts, diagnostics
+  and provenance, deterministic ordering, cancellation, initialization/cleanup
+  order and lock/ownership boundaries. Use behavioral, integration, differential
+  or race tests appropriate to the affected risks; size metrics do not establish
+  correctness.
+
 ## Interface and Constraint Naming
 
 - Use named interfaces for behavioral contracts in API signatures, fields, type
@@ -221,21 +268,53 @@ default:
 - Place shared function contracts beside the types/capability they describe in
   gosr. Keep implementation-specific callbacks in their owning project/package;
   matching signatures alone do not establish shared semantics.
-- Extract literals when a semantic name clarifies intent or one owner must keep
-  repeated protocol, syntax or policy values consistent. Prefer the standard
-  library's existing constant when it already expresses the intended meaning.
-- Prefer named constants over hardcoded protocol tokens, marker names, format
-  identifiers, generated artifact names and meaningful policy defaults. Keep one
-  owner for each meaning; derive related lengths and values from that owner.
-- Put ecosystem contract constants in the relevant gosr capability package;
-  keep project-specific constants local to that project. Avoid a broad
-  `constants` package that mixes unrelated domains.
-- Do not merge literals solely because their spelling matches or replace
-  self-explanatory values mechanically. Keep ordinary zero values, loop steps,
-  local syntax and independent test fixtures literal when clearer.
-- When parsing shared syntax, derive cursor offsets from token lengths instead
-  of duplicating magic widths. Generated source and templates follow the same
-  function-type and constant-ownership rules.
+- Apply the same function-type guidance to generated source and templates.
+
+### Constants and Discriminator Types
+
+- Closed framework domains MUST use named types and typed constants for kinds,
+  states, modes, outcomes and similar discriminators. Fields and parameters MUST
+  use those types rather than raw strings or integers. Use their constants at
+  construction, comparison and dispatch sites, including single-use sites.
+- Framework and protocol values MUST have one semantic owner. This includes
+  annotations, generated symbols, artifact names, template entry points, stage
+  names and meaningful policy defaults. Reuse that definition across discovery,
+  validation, rendering and runtime code instead of declaring parallel copies.
+- Ordinary single-file diagnostics, syntax tokens and meaningful numeric policy
+  values MUST also use named constants near the top of their owning file, after
+  imports. Repetition is not required. Distinguish complete messages, prefixes,
+  format strings, limits and intervals through accurate names.
+- Put shared ecosystem contract constants in the relevant Gosr capability
+  package; keep implementation-specific values in their owning project/package.
+  Do not create a broad constants dumping ground or merge unrelated meanings
+  merely because their spellings match.
+- Prefer existing standard-library constants or helpers. Derive related values
+  and cursor offsets from their owner rather than repeating tokens or magic
+  widths. Read Go language and dependency versions from module metadata instead
+  of duplicating them in implementation code.
+- Open extension identifiers, such as custom scopes, registered configuration
+  formats and consumer-defined diagnostic phases, MUST remain extensible.
+  Validate unknown closed-enum values without turning open domains into enums.
+- Generated Go MUST reference public constants for known framework enums and
+  shared diagnostics instead of emitting their literal values. Quote open
+  identifiers safely and use explicit type conversions where needed. Serialized
+  data may retain required wire values, derived from the same semantic owner.
+- Apply this policy to handwritten code, generators, templates and generated Go.
+  Review discriminator types, semantic duplication and ownership together;
+  moving a literal into a constant alone does not establish a sound design.
+- Keep independent expected wire values and intentional malformed/formatting
+  fixtures literal when that is what a test verifies. Do not replace both the
+  implementation and its expected result with the same production constant.
+  Verify unknown closed values, open extensions, serialization and generated
+  compilation as applicable when changing these boundaries.
+- Empty/zero values, ordinary loop steps, clear standard numeric widths/bases and
+  lexical character ranges may remain literal. Import paths and struct tags
+  required by Go syntax need not be forced into constants. These exceptions do
+  not permit raw framework discriminators, protocol tokens or policy defaults.
+- In Nemo, reuse Gosr environment syntax and contracts. Keep codec formats,
+  binding modes and symbols, source protocols, compiler policy and resource
+  budgets with their Nemo owners. Configuration format registration MUST remain
+  open to external decoders rather than restricted to the built-in formats.
 
 ## Shared Compiler Infrastructure
 

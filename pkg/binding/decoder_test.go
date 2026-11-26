@@ -65,7 +65,9 @@ func TestDecoderComposition(t *testing.T) {
 }
 
 func TestNilDecoderComposition(t *testing.T) {
-	if binding.PointerDecoder[int](nil) != nil || binding.ListDecoder[int](nil) != nil || binding.MapDecoder[int](nil) != nil {
+	if binding.PointerDecoder[int](nil) != nil ||
+		binding.ListDecoder[int](nil) != nil ||
+		binding.MapDecoder[int](nil) != nil {
 		t.Fatal("nil decoder must remain diagnosable")
 	}
 }

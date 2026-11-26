@@ -17,14 +17,20 @@ package compiler
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 
 	fileoutput "github.com/longxi-go/gosr/pkg/codegen/output"
 )
 
+const (
+	generatedOutputIsStaleFormat                   = "generated output is stale: %s"
+	outputRequiresValidatedGeneratedOverlayMessage = "output requires validated generated overlay"
+)
+
 func finishGeneration(ctx context.Context, g *generation) error {
 	if !g.validated {
-		return fmt.Errorf("output requires validated generated overlay")
+		return errors.New(outputRequiresValidatedGeneratedOverlayMessage)
 	}
 	for _, out := range g.outputs {
 		g.report.Files = append(g.report.Files, out.file)
@@ -41,7 +47,7 @@ func finishGeneration(ctx context.Context, g *generation) error {
 			continue
 		}
 		if g.options.Check {
-			return fmt.Errorf("generated output is stale: %s", out.file.Path)
+			return fmt.Errorf(generatedOutputIsStaleFormat, out.file.Path)
 		}
 	}
 	if g.options.Check {

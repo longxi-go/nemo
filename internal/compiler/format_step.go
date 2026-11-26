@@ -22,6 +22,11 @@ import (
 	"github.com/longxi-go/nemo/pkg/maptypes"
 )
 
+const (
+	formatOutputErrorFormat      = "format %s: %w"
+	missingOutputGoVersionFormat = "format %s: target module Go version is unavailable for %s"
+)
+
 func formatGeneration(_ context.Context, g *generation) error {
 	versions := make(maptypes.StringMap[string], len(g.analysis.packages))
 	for _, pkg := range g.analysis.packages {
@@ -33,7 +38,7 @@ func formatGeneration(_ context.Context, g *generation) error {
 		out := &g.outputs[i]
 		langVersion, ok := versions[out.file.Package]
 		if !ok {
-			return fmt.Errorf("format %s: target module Go version is unavailable for %s", out.file.Path, out.file.Package)
+			return fmt.Errorf(missingOutputGoVersionFormat, out.file.Path, out.file.Package)
 		}
 		// A workspace may contain modules with different Go directives. Use the
 		// output owner's version rather than the generator's language baseline.
@@ -41,7 +46,7 @@ func formatGeneration(_ context.Context, g *generation) error {
 			LangVersion: langVersion,
 		})
 		if err != nil {
-			return fmt.Errorf("format %s: %w", out.file.Path, err)
+			return fmt.Errorf(formatOutputErrorFormat, out.file.Path, err)
 		}
 		out.GoVersion = langVersion
 		out.Content = formatted

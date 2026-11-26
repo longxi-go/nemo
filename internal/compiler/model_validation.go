@@ -16,13 +16,17 @@ package compiler
 
 import "fmt"
 
+const (
+	fieldUnsupportedBindingModeFormat = "field %s.%s: unsupported binding mode %q"
+)
+
 // Validate semantic choices before a template can interpret an unknown mode as
 // another strategy. Model diagnostics identify the originating type and field.
 func (m packageModel) validate() error {
 	for _, helper := range m.Helpers {
 		for _, field := range helper.Fields {
 			if !field.Mode.valid() {
-				return fmt.Errorf("field %s.%s: unsupported binding mode %q", helper.Type, field.Name, field.Mode)
+				return fmt.Errorf(fieldUnsupportedBindingModeFormat, helper.Type, field.Name, field.Mode)
 			}
 		}
 	}

@@ -16,6 +16,7 @@ package command
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -24,6 +25,13 @@ import (
 )
 
 const (
+	directoryFlag                                    = "dir"
+	rootsFlag                                        = "roots"
+	moduleWorkingDirectoryMessage                    = "module working directory"
+	packagePatternsRepeatableOrCommaSeparatedMessage = "package patterns, repeatable or comma-separated"
+	unexpectedArgumentsMessage                       = "unexpected arguments"
+	usageMessage                                     = "usage: nemoctl generate|check [--roots pattern] [--dir directory]"
+
 	generateCommand = "generate"
 	checkCommand    = "check"
 )
@@ -31,19 +39,19 @@ const (
 // Run implements a testable CLI with caller-owned cancellation and diagnostics.
 func Run(ctx context.Context, args []string, out io.Writer) error {
 	if len(args) == 0 || (args[0] != generateCommand && args[0] != checkCommand) {
-		return fmt.Errorf("usage: nemoctl generate|check [--roots pattern] [--dir directory]")
+		return errors.New(usageMessage)
 	}
 	flags := flag.NewFlagSet(args[0], flag.ContinueOnError)
 	flags.SetOutput(out)
 	var roots rootFlags
 	var options codegen.Options
-	flags.Var(&roots, "roots", "package patterns, repeatable or comma-separated")
-	flags.StringVar(&options.Dir, "dir", "", "module working directory")
+	flags.Var(&roots, rootsFlag, packagePatternsRepeatableOrCommaSeparatedMessage)
+	flags.StringVar(&options.Dir, directoryFlag, "", moduleWorkingDirectoryMessage)
 	if err := flags.Parse(args[1:]); err != nil {
 		return err
 	}
 	if flags.NArg() != 0 {
-		return fmt.Errorf("unexpected arguments")
+		return errors.New(unexpectedArgumentsMessage)
 	}
 	options.Roots = roots
 	options.Check = args[0] == checkCommand

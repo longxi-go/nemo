@@ -161,7 +161,11 @@ func TestPluginDecodeFailureOrigin(t *testing.T) {
 	}
 	_, err = providers[0].Fetch(context.Background())
 	var detail *gosr.Error
-	if !errors.As(err, &detail) || detail.Code != gosr.SourceFailed || detail.Origin.Resource != path || !errors.Is(err, secret) || strings.Contains(err.Error(), "secret payload") {
+	if !errors.As(err, &detail) ||
+		detail.Code != gosr.SourceFailed ||
+		detail.Origin.Resource != path ||
+		!errors.Is(err, secret) ||
+		strings.Contains(err.Error(), "secret payload") {
 		t.Fatalf("plugin error provenance/redaction: %v", err)
 	}
 	var nilDecoder *failingDecoder

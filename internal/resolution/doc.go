@@ -19,5 +19,9 @@
 // Unused properties are resolved too. Escaped placeholders become literal text
 // and are not expanded again by Lookup or later substitution. Cycles and reference
 // paths beyond 64 levels fail resolution; each expanded string is limited to 1 MiB.
+// Nested placeholder keys expand before lookup, sharing depth and output limits;
+// an escaped expansion remains literal when used as a key.
+// Diagnostics omit expanded lookup addresses, including those in operand error
+// paths, while preserving classification, safe owning origins and error causes.
 // Immutable resolvers support concurrent reads.
 package resolution

@@ -27,6 +27,16 @@ import (
 	"strings"
 )
 
+const (
+	allPackagesPattern        = "all"
+	commandPackagesPattern    = "cmd"
+	goJSONFlag                = "-json"
+	goListCommand             = "list"
+	goModuleFlag              = "-m"
+	standardPackagesPattern   = "std"
+	discoverModuleRootsFormat = "discover module roots: %w"
+)
+
 type discoveryRoot struct {
 	dir       string
 	recursive bool
@@ -56,9 +66,9 @@ func discoveryRoots(ctx context.Context, options Options) ([]discoveryRoot, erro
 	var selected []discoveryRoot
 	var imports []string
 	for _, pattern := range roots(options) {
+		path, fileQuery := strings.CutPrefix(pattern, fileQueryPrefix)
 		switch {
-		case strings.HasPrefix(pattern, fileQueryPrefix):
-			path := strings.TrimPrefix(pattern, fileQueryPrefix)
+		case fileQuery:
 			if !filepath.IsAbs(path) {
 				path = filepath.Join(base, path)
 			}
@@ -75,7 +85,7 @@ func discoveryRoots(ctx context.Context, options Options) ([]discoveryRoot, erro
 			})
 		case build.IsLocalImport(pattern) || filepath.IsAbs(pattern):
 			selected = append(selected, discoveryPatternRoot(base, pattern))
-		case pattern == "std" || pattern == "cmd":
+		case pattern == standardPackagesPattern || pattern == commandPackagesPattern:
 			continue
 		default:
 			imports = append(imports, pattern)
@@ -91,7 +101,8 @@ func discoveryRoots(ctx context.Context, options Options) ([]discoveryRoot, erro
 	// Local workspace and replacement modules may become dependencies during
 	// the later type load, even when they are not generation destinations.
 	for _, module := range modules {
-		if module.Dir != "" && (module.Main || module.Replace != nil && module.Replace.Version == "") {
+		if module.Dir != "" &&
+			(module.Main || module.Replace != nil && module.Replace.Version == "") {
 			selected = append(selected, discoveryRoot{
 				dir:       module.Dir,
 				recursive: true,
@@ -104,14 +115,16 @@ func discoveryRoots(ctx context.Context, options Options) ([]discoveryRoot, erro
 			if module.Dir == "" {
 				continue
 			}
+			suffix, descendant := strings.CutPrefix(pattern, module.Path+importPathSeparator)
 			switch {
-			case pattern == "all":
+			case pattern == allPackagesPattern:
 				selected = append(selected, discoveryRoot{
 					dir:       module.Dir,
 					recursive: true,
 				})
-			case pattern == module.Path || strings.HasPrefix(pattern, module.Path+importPathSeparator):
-				suffix := strings.TrimPrefix(strings.TrimPrefix(pattern, module.Path), importPathSeparator)
+			case pattern == module.Path:
+				selected = append(selected, discoveryPatternRoot(module.Dir, ""))
+			case descendant:
 				selected = append(selected, discoveryPatternRoot(module.Dir, filepath.FromSlash(suffix)))
 			case wildcard && strings.HasPrefix(module.Path, prefix):
 				selected = append(selected, discoveryRoot{
@@ -148,11 +161,11 @@ func discoveryPatternRoot(base, pattern string) discoveryRoot {
 }
 
 func discoveryModules(ctx context.Context, dir string) ([]discoveryModule, error) {
-	command := exec.CommandContext(ctx, goExecutable, "list", "-m", "-json", readOnlyModuleFlag, "all")
+	command := exec.CommandContext(ctx, goExecutable, goListCommand, goModuleFlag, goJSONFlag, readOnlyModuleFlag, allPackagesPattern)
 	command.Dir = dir
 	data, err := command.Output()
 	if err != nil {
-		return nil, fmt.Errorf("discover module roots: %w", errors.Join(ctx.Err(), err))
+		return nil, fmt.Errorf(discoverModuleRootsFormat, errors.Join(ctx.Err(), err))
 	}
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	var modules []discoveryModule
@@ -162,7 +175,7 @@ func discoveryModules(ctx context.Context, dir string) ([]discoveryModule, error
 			if errors.Is(err, io.EOF) {
 				return modules, nil
 			}
-			return nil, fmt.Errorf("discover module roots: %w", err)
+			return nil, fmt.Errorf(discoverModuleRootsFormat, err)
 		}
 		modules = append(modules, module)
 	}

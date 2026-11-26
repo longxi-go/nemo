@@ -40,29 +40,43 @@ func MapObjects(r gosr.PropertyResolver, key string, required bool) (maptypes.St
 		return nil, err
 	}
 	if found {
-		if property.Value.Kind() != gosr.ObjectKind {
-			return nil, objectFailure(key, property.Origin)
-		}
-		if err := admitComposite(key, property); err != nil {
+		return exactObjectMap(r, key, property)
+	}
+	return flatObjectMap(r, key, required)
+}
+
+func exactObjectMap(r gosr.PropertyResolver, key string, property gosr.Property) (maptypes.StringMap[ObjectInput], error) {
+	if property.Value.Kind() != gosr.ObjectKind {
+		return nil, objectFailure(key, property.Origin)
+	}
+	if err := admitComposite(key, property); err != nil {
+		return nil, err
+	}
+	fields := property.Value.Fields()
+	members := make([]string, 0, len(fields))
+	for member := range fields {
+		members = append(members, member)
+	}
+	sort.Strings(members)
+	out := make(maptypes.StringMap[ObjectInput], len(fields))
+	for _, member := range members {
+		// Each element has a separate resolver, so its map key need not become an address.
+		input, err := newObjectInput(r, objectElement{
+			prefix:    key,
+			value:     fields[member],
+			sourceKey: key,
+			origin:    property.Origin,
+			path:      member,
+		})
+		if err != nil {
 			return nil, err
 		}
-		fields := property.Value.Fields()
-		members := make([]string, 0, len(fields))
-		for member := range fields {
-			members = append(members, member)
-		}
-		sort.Strings(members)
-		out := make(maptypes.StringMap[ObjectInput], len(fields))
-		for _, member := range members {
-			// Each element has a separate resolver, so its map key need not become an address.
-			input, err := newObjectInput(r, key, fields[member], key, property.Origin, member)
-			if err != nil {
-				return nil, err
-			}
-			out[member] = input
-		}
-		return out, nil
+		out[member] = input
 	}
+	return out, nil
+}
+
+func flatObjectMap(r gosr.PropertyResolver, key string, required bool) (maptypes.StringMap[ObjectInput], error) {
 	groups := make(maptypes.StringMap[maptypes.PropertyMap])
 	keys := r.Keys()
 	if err := limits.Check(limits.Properties, int64(len(keys)), int64(limits.DefaultProperties)); err != nil {
@@ -70,10 +84,10 @@ func MapObjects(r gosr.PropertyResolver, key string, required bool) (maptypes.St
 	}
 	budget := admission.New(context.Background(), limits.Default(), false)
 	for _, address := range keys {
-		if !strings.HasPrefix(address, key+propertypath.Separator) {
+		relative, descendant := strings.CutPrefix(address, key+propertypath.Separator)
+		if !descendant {
 			continue
 		}
-		relative := strings.TrimPrefix(address, key+propertypath.Separator)
 		member, _, _ := strings.Cut(relative, propertypath.Separator)
 		value, exists, err := r.Lookup(address)
 		if err != nil {

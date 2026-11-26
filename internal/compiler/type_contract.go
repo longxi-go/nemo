@@ -18,17 +18,27 @@ import (
 	"go/types"
 )
 
+const (
+	durationTypeName    = "Duration"
+	errorTypeName       = "error"
+	timePackagePath     = "time"
+	unmarshalTextMethod = "UnmarshalText"
+)
+
 func hasText(t *types.Named) bool {
-	obj, _, _ := types.LookupFieldOrMethod(types.NewPointer(t), true, t.Obj().Pkg(), "UnmarshalText")
+	obj, _, _ := types.LookupFieldOrMethod(types.NewPointer(t), true, t.Obj().Pkg(), unmarshalTextMethod)
 	if _, ok := obj.(*types.Func); !ok {
 		return false
 	}
 	sig, ok := obj.Type().(*types.Signature)
-	if !ok || sig.Variadic() || sig.Params().Len() != 1 || sig.Results().Len() != 1 {
+	if !ok ||
+		sig.Variadic() ||
+		sig.Params().Len() != 1 ||
+		sig.Results().Len() != 1 {
 		return false
 	}
 	return types.Identical(sig.Params().At(0).Type(), types.NewSlice(types.Typ[types.Byte])) &&
-		types.Identical(sig.Results().At(0).Type(), types.Universe.Lookup("error").Type())
+		types.Identical(sig.Results().At(0).Type(), types.Universe.Lookup(errorTypeName).Type())
 }
 
 func externalBindable(t *types.Named, pkg *types.Package, contract *types.Interface) bool {
@@ -43,5 +53,5 @@ func externalBindable(t *types.Named, pkg *types.Package, contract *types.Interf
 func isDurationType(t types.Type) bool {
 	named, ok := types.Unalias(t).(*types.Named)
 	return ok && named.Obj().Pkg() != nil &&
-		named.Obj().Pkg().Path() == "time" && named.Obj().Name() == "Duration"
+		named.Obj().Pkg().Path() == timePackagePath && named.Obj().Name() == durationTypeName
 }

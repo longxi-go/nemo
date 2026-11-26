@@ -19,6 +19,10 @@ import (
 	"github.com/longxi-go/nemo/pkg/maptypes"
 )
 
+const (
+	cannotDecodeConfigurationDocumentMessage = "cannot decode configuration document"
+)
+
 // Decoder turns one document into normalized portable values, without transport ownership.
 type (
 	Decoder interface {
@@ -40,7 +44,7 @@ func (f DecoderFunc) Decode(b []byte) (maptypes.ValueMap, error) {
 func decodeError(cause error) error {
 	return &gosr.Error{
 		Code:    gosr.InvalidValue,
-		Message: "cannot decode configuration document",
+		Message: cannotDecodeConfigurationDocumentMessage,
 		Cause:   cause,
 	}
 }

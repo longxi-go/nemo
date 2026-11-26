@@ -15,8 +15,13 @@
 package compiler
 
 import (
-	"fmt"
+	"errors"
 	"go/types"
+)
+
+const (
+	sortPackagePath                               = "sort"
+	objectCollectionDefaultsAreUnsupportedMessage = "object collection defaults are unsupported"
 )
 
 func (m *modeler) objectCollection(declared types.Type, field *fieldModel) (bool, error) {
@@ -49,7 +54,7 @@ func (m *modeler) objectCollection(declared types.Type, field *fieldModel) (bool
 		return false, nil
 	}
 	if field.HasDefault {
-		return true, fmt.Errorf("object collection defaults are unsupported")
+		return true, errors.New(objectCollectionDefaultsAreUnsupportedMessage)
 	}
 	object := &objectModel{
 		Type:    m.typeName(element),
@@ -76,7 +81,7 @@ func (m *modeler) objectCollection(declared types.Type, field *fieldModel) (bool
 	field.Type = m.typeName(declared)
 	field.Element = object
 	if mode == fieldModeMap {
-		m.imports.Add("sort", m.names.Sort)
+		m.imports.Add(sortPackagePath, m.names.Sort)
 	}
 	return true, nil
 }

@@ -49,9 +49,11 @@ go work init ./golayout ./gosr ./gosr/tools ./nemo
 
 已有工作区使用 `go work use` 扩展。`gosr/tools` 有独立 `go.mod`，必须单独加入；
 其他模块按需要加入。`go.work` 和 `go.work.sum` 保持本地使用，
-生产模块不包含同级目录替换。工作区中的 `go build` 使用本地代码。
-仓库 Make 目标强制使用 `GOWORK=off`，并拒绝进程或持久配置中的 `GOFLAGS` 覆盖，
-使其检查基于声明的公开依赖。
+生产模块不包含同级目录替换。
+
+在 Nemo 目录执行 `make check WORKSPACE=../go.work` 可验证指定工作区，临时测试
+使用方也采用其中选定的模块。未指定 `WORKSPACE` 时，检查使用已发布的依赖图。
+检查拒绝进程或持久配置中的 `GOFLAGS` 覆盖。
 
 ## 文档
 

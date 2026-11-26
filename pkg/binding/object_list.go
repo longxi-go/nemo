@@ -64,7 +64,13 @@ func ListObjects(r gosr.PropertyResolver, key string, required bool) ([]ObjectIn
 	inputs := make([]ObjectInput, 0, len(items))
 	for i, value := range items {
 		indexPath := listIndexPrefix + strconv.Itoa(i) + listIndexSuffix
-		input, err := newObjectInput(r, key, value, key, property.Origin, indexPath)
+		input, err := newObjectInput(r, objectElement{
+			prefix:    key,
+			value:     value,
+			sourceKey: key,
+			origin:    property.Origin,
+			path:      indexPath,
+		})
 		if err != nil {
 			return nil, err
 		}

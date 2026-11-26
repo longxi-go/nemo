@@ -197,3 +197,5 @@ projection and collection allocation. Flat map grouping counts the whole input;
 individually small members cannot bypass the aggregate budget. Generated object
 depth has a separate limit. External binders must enforce their own internal
 limits; each binding operation has independent counters.
+
+Nested placeholder keys are supported: `${${stage}.url:localhost}` expands `stage` before looking up the resulting address. Defaults apply only to missing addresses. Escaped text is not reparsed; nested keys share resolution cycle, depth, output and cancellation limits.
